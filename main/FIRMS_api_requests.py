@@ -160,8 +160,6 @@ def get_country_data(source, country, day_range, date=''):
 
     country_data_url = COUNTRY_BASE_URL + '/' + source + '/' + country + '/' + day_range + '/' + date
 
-    print(country_data_url)
-
     data = get_data_from_url(country_data_url, data_format = 'csv')
 
     return data
