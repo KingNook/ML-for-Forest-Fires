@@ -7,7 +7,7 @@ import dotenv
 import os
 import pandas as pd
 
-import typing
+from typing import Literal
 
 dotenv.load_dotenv(dotenv.find_dotenv())
 MAP_KEY = os.environ['MAP_KEY']
@@ -26,7 +26,7 @@ COUNTRIES_URL = 'https://firms.modaps.eosdis.nasa.gov/api/countries'
 COUNTRY_BASE_URL = 'https://firms.modaps.eosdis.nasa.gov/api/country/csv/' + MAP_KEY
 
 
-def get_data_from_url(url: str, data_format: typing.Literal['json', 'csv'] = 'json'):
+def get_data_from_url(url: str, data_format: Literal['json', 'csv'] = 'json'):
     # probably a bad function since it 'does multiple things' and as a result, has no well-defined / consistent output type
 
     # technically should be some sort of check, eg using python `validators` module, but i'm the only person using this and the url is hard-coded so eh
@@ -99,15 +99,34 @@ def get_available_datasets(dataset: str = 'all', base_dataset_url: str = DA_URL)
     return get_data_from_url(ds_url, data_format='csv')
 
 @track_transactions_spent
-def get_area_data(source: str, area_coords: str, day_range: int, date: str = '', area_base_url: str = AREA_BASE_URL):
+def get_area_data(
+        source: str, 
+        area_coords: str, 
+        day_range: int, 
+        date: str = '', 
+        area_base_url: str = AREA_BASE_URL
+    ):
     '''
     get fire data from a specified area
     
     parameters:
-    - `source` -- should be `Literal[<all available datasets>]`: which dataset to get data from (eg 'MODIS_SP')
+    - `source` -- `str`: which dataset to get data from (eg 'MODIS_SP') // must be one of the following options:
+            ```
+            MODIS_NRT
+            MODIS_SP  
+            VIIRS_NOAA20_NRT
+            VIIRS_NOAA20_SP 
+            VIIRS_NOAA21_NRT 
+            VIIRS_SNPP_NRT 
+            VIIRS_SNPP_SP
+            LANDSAT_NRT
+            GOES_NRT 
+            BA_MODIS  
+            BA_VIIRS
+            ```
     - `day_range` -- `int`: number of days we want data for -- will count backwards from current date if <date> is not specified
-    - `area_coords` -- `str`: (default: 'world') lat/long max/min determining extent of data gathered (or 'world' if we want all data)
-    - `date` -- `str`: (optional) -- date of data (for historical data) // NEED TO CHECK IF THIS IS START OR END DATE OF DATA RANGE
+    - `area_coords` -- `str`: (default: `'world'`) lat/long max/min determining extent of data gathered (or `'world'` if we want all data)
+    - `date` -- `str`, `yyyy-mm-dd`: (*optional*) -- date of data (for historical data) // returns data from `<date>` to `<date + day_range - 1>` // ALTERNATIVELY, can also replace with `/api/data-availability` to see available data
     '''
 
     area_data_url = area_base_url + '/' + source + '/' + area_coords + '/' + str(day_range) + '/' + date
@@ -132,9 +151,16 @@ def get_countries():
 def get_country_data(source, country, day_range, date=''):
     '''
     NB NEED TO DO TYPE HINTS + DOCS FOR THIS
+
+    possibly relevant values:
+    - United Kingdom is `GBR`
+    - United States is `USA`
+    - Russian Federation is `RUS`
     '''
 
     country_data_url = COUNTRY_BASE_URL + '/' + source + '/' + country + '/' + day_range + '/' + date
+
+    print(country_data_url)
 
     data = get_data_from_url(country_data_url, data_format = 'csv')
 

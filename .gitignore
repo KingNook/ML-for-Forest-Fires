@@ -2,3 +2,4 @@ testing/**
 data/**
 data-exploration/**
 .env
+*.ipynb
