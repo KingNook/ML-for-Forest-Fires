@@ -139,5 +139,3 @@ def get_country_data(source, country, day_range, date=''):
     data = get_data_from_url(country_data_url, data_format = 'csv')
 
     return data
-
-print(get_country_data('MODIS_NRT', 'PER', '5'))
