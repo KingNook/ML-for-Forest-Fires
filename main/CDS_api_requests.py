@@ -2,8 +2,6 @@
 templates for sending requests to CDS (mostly for ERA5 data)
 '''
 
-import cdsapi
-
 import typing
 import copy
 import numpy as np
@@ -94,7 +92,7 @@ def split_request_by_feature_list(request: Request, feature_list: str) -> np.nda
     req = [request]
 
     for feature in feature_list:
-        req = split_list_by_feature(feature)
+        req = split_list_by_feature(req, feature)
 
     return req
 
@@ -107,8 +105,8 @@ def split_large_request(request: Request, max_size: int= -1) -> tuple[Request]:
     - max_size: maximum size per final request sent to CDS API -- i would guess set this to something <= 30k
     '''
     
-    # make function to do all of these at once :)
-    sr = split_request_by_feature_list(request, ['variable', 'year', 'month'])
+    # make function to do all of these at once :) -- see 2025-07-16 daily note
+    sr = split_request_by_feature_list(request, ['year', 'month'])
 
     return sr
 
@@ -152,19 +150,22 @@ ALL_TIMES = [
     "21:00", "22:00", "23:00"
 ]
 
-def default_era5_request(variables: list[str]) -> Request:
+def default_era5_request(variables: list[str], years: list[str] = DEFAULT_YEARS) -> Request:
     '''
-    puts together a packet with default parameters
+    puts together a packet with default parameters -- nb the era5 datasets are:
+    - reanalysis-era5-land
+    - reanalysis-era5-single-levels
     '''
 
     request = {
         "variable": variables,
-        "year": DEFAULT_YEARS,
+        "year": years,
         "month": ALL_MONTHS,
         "day": ALL_DAYS,
         "time": ALL_TIMES,
         "data_format": "grib",
-        "download_format": "unarchived"
+        "download_format": "zip",
+        "area": [71.5, -179.1, 18.9, 179.8] # from FIRMS -- extent for USA
     }
 
-    return request
+    return split_large_request(request)
