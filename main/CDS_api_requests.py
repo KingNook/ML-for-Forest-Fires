@@ -100,13 +100,15 @@ def split_large_request(request: Request, max_size: int= -1) -> tuple[Request]:
     '''
     CDS limits all requests (API or webform) to 121000 credits (nb i assume API has the same limit as webform) -- if i want to request a larger amount of data, it is recommended to split this up into smaller requests -- my guess would be to limit to circa 30k credits max? // by default will break down into <1 variable, 1 month> per request
 
+    recommendation is to split requests into: **all variables, monthly requests**
+
     inputs:
     - request: formatted as required for the CDS API
     - max_size: maximum size per final request sent to CDS API -- i would guess set this to something <= 30k
     '''
     
-    # make function to do all of these at once :) -- see 2025-07-16 daily note
-    sr = split_request_by_feature_list(request, ['year', 'month'])
+    # split request -- see 2025-07-16 daily note
+    sr = split_request_by_feature_list(request, ['year', 'month', 'day'])
 
     return sr
 
@@ -165,7 +167,7 @@ def default_era5_request(variables: list[str], years: list[str] = DEFAULT_YEARS)
         "time": ALL_TIMES,
         "data_format": "grib",
         "download_format": "zip",
-        "area": [71.5, -179.1, 18.9, 179.8] # from FIRMS -- extent for USA
+        # "area": [71.5, -179.1, 18.9, 179.8] # from FIRMS -- extent for USA
     }
 
     return split_large_request(request)

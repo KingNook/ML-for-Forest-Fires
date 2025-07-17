@@ -5,3 +5,5 @@ data-exploration/**
 .env
 *.ipynb
 *.grib
+*.idx
+*.zip

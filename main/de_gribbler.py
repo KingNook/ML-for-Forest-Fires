@@ -7,8 +7,13 @@ aims:
 '''
 
 import xarray as xr
+import pandas as pd
+import numpy as np
 
-with xr.open_dataset(filename_or_obj = './data/TEST_DATA/data.grib', engine = 'cfgrib') as ds: 
+from IPython.display import display
 
-    print(type(ds['tp']), ds['tp'])
-    
+DATA_PATH = './sample_month/cvh.grib' # './data/data.grib'
+
+with xr.open_dataset(filename_or_obj = DATA_PATH, engine = 'cfgrib') as ds: 
+
+    print(ds.cvh)

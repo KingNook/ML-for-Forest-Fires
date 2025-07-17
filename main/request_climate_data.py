@@ -13,17 +13,20 @@ wind_speed_variables = [
 ]
 
 standard_variables = [
-    'total_precipitation', ## not sure about this one
-    '2m_dewpoint_temperature', # 
+    'total_precipitation',
+    '2m_dewpoint_temperature',
     '2m_temperature', 
     'skin_temperature',
     'leaf_area_index_high_vegetation',
     'leaf_area_index_low_vegetation',
+    'surface_pressure'
+]
+
+vegetation_cover = [
     'high_vegetation_cover', 
     'low_vegetation_cover',
     'type_of_high_vegetation', 
-    'type_of_low_vegetation',
-    'surface_pressure'
+    'type_of_low_vegetation'
 ]
 
 soil_moisture_variables = [
@@ -33,7 +36,9 @@ soil_moisture_variables = [
     'volumetric_soil_water_layer_4'
 ]
 
-requests = CDS_api_requests.default_era5_request(proxy_base_variables, years = ['2010'])
+all_vars = proxy_base_variables + wind_speed_variables + standard_variables
+
+requests = CDS_api_requests.default_era5_request(standard_variables)
 dataset = 'reanalysis-era5-land'
 
 client = cdsapi.Client()
