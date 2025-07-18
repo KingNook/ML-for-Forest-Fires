@@ -84,5 +84,24 @@ def send_request(
         client.retrieve(dataset, request).download()
     else:
         client.retrieve(dataset, request, target)
-client.retrieve(dataset, requests[0]).download()
-    return None
+
+# example code -- downloads and unzips prior data for the alaska range
+if __name__ == '__main__':
+
+    extent = ALASKA_RANGE_EXTENT.CDS
+
+    requests = CDS_api_requests.era5_land_request(
+    variables = proxy_base_variables, 
+    extent = extent,
+    years = ['2009'],
+    months = [str(i) for i in range(6, 13)] # 6 -> 12 (hopefully)
+    )
+
+    for request in requests: 
+
+        month = int(request['month'][0])
+        download_path = f'./data/alaska_prior/2009-{month:02d}_proxy_data.zip'
+
+        send_request(request, target = download_path)
+
+    unzippify.unpack_data_folder('./data/alaska_prior')
