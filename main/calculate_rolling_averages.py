@@ -8,23 +8,48 @@ the plan:
 
 for this, we will need the data 180 days backwards from the start -- use python `datetime` to find this and to get the days needed between the points
 OR we could just count back 6 months -- have put in a sample request to check how large this dataset would be -- may be the correct way to go about this (hold 6 months of data prior to the month we are looking at)
+
+
 '''
 
-# stub data for now -- will deal with this bit later
-total_precipitation = []
-new_total_precip = []
-ground_temperature = []
+import datetime
 
-prev_prec = []
-prev_temp = []
+DATA_START_DATE = datetime.date(2010, 1, 1)
+DATA_END_DATE = datetime.date(2014, 12, 31)
 
-av_prec = []
-av_temp = []
+DAY_COUNT = DATA_END_DATE - DATA_START_DATE
 
-prev_total = prev_prec[-1]
+def daterange(start, end):
 
-for day in range(30):
-    new_total = prev_total - total_precipitation[day] + new_total_precip[day]
-    av_prec.append(new_total)
+    days = int((end - start).days)
+
+    for n in range(days):
+        yield start + datetime.timedelta(n)
+
+def save(data):
+    '''
+    rename this later -- probs output to a file or perhaps a dataframe // for now is just placeholder
+    '''
+
+# need data from 180 days before start, start calculating totals from T-150 days in advance = -180 + 30
+
+PROCESS_START_DATE = DATA_START_DATE - datetime.timedelta(days=180)
+
+
+# initial total
+prev_total = sum([
+    data[date] for date in daterange(PROCESS_START_DATE, PROCESS_START_DATE+datetime.timedelta(30))
+])
+
+save(prev_total)
+
+for date in daterange(PROCESS_START_DATE + datetime.timedelta(days=30), DATA_END_DATE):
+
+    new_data = data[date]
+    old_data = data[date - datetime.timedelta(days=30)]
+
+    new_total = prev_total + new_data - old_data
+
+    save(new_total)
 
     prev_total = new_total
