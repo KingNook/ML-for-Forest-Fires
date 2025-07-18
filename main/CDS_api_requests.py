@@ -8,6 +8,8 @@ import numpy as np
 
 from math import ceil
 
+from extents import FIRMS_to_CDS, validate_extent
+
 type Request = dict[str, list|str]
 
 ## == PROCESSING REQUESTS == ##
@@ -32,8 +34,8 @@ def num_items(data):
             
             # when the data does not have a __len__() method defined
             return 0
-    
 
+## i don't think this one is used anymore
 def summarise_request_size(request: Request) -> np.ndarray[int]:
     '''
     note this returns a numpy array -- use `<array>.prod()` to get the estimate of request size
@@ -67,7 +69,7 @@ def split_request_by_feature(request: Request, feature: str) -> np.ndarray[Reque
 
     for i in range(num_feature):
         new_request = copy.deepcopy(request)
-        new_request[feature] = features[i]
+        new_request[feature] = [features[i]]
 
         split_request.append(new_request)
 
@@ -108,13 +110,14 @@ def split_large_request(request: Request, max_size: int= -1) -> tuple[Request]:
     '''
     
     # split request -- see 2025-07-16 daily note
-    sr = split_request_by_feature_list(request, ['year', 'month', 'day'])
+    sr = split_request_by_feature_list(request, ['year', 'month'])
 
     return sr
 
 ## == CREATING REQUESTS == ##
 # since most will be boilerplate, may as well create methods to make life easier
 
+# years used for training in McNorton et al (2024)
 DEFAULT_YEARS = [
     "2010", "2011", "2012",
     "2013", "2014"
@@ -152,22 +155,43 @@ ALL_TIMES = [
     "21:00", "22:00", "23:00"
 ]
 
-def default_era5_request(variables: list[str], years: list[str] = DEFAULT_YEARS) -> Request:
+def era5_land_request(
+        variables: list[str], 
+        extent: typing.Literal['world'] | list[str] = 'world', 
+        years: list[str] = DEFAULT_YEARS, 
+        months: list[str] = ALL_MONTHS,
+        days: list[str] = ALL_DAYS,
+        ) -> list[Request]:
     '''
-    puts together a packet with default parameters -- nb the era5 datasets are:
-    - reanalysis-era5-land
-    - reanalysis-era5-single-levels
+    extent should be the CDS version
     '''
 
-    request = {
-        "variable": variables,
-        "year": years,
-        "month": ALL_MONTHS,
-        "day": ALL_DAYS,
-        "time": ALL_TIMES,
-        "data_format": "grib",
-        "download_format": "zip",
-        # "area": [71.5, -179.1, 18.9, 179.8] # from FIRMS -- extent for USA
-    }
+    if extent == 'world':
+
+        request = {
+            "variable": variables,
+            "year": years,
+            "month": months,
+            "day": days,
+            "time": ALL_TIMES,
+            "data_format": "grib",
+            "download_format": "zip"
+        }
+        
+    else:
+
+        validate_extent(extent, extent_format='CDS')
+
+        request = {
+            "variable": variables,
+            "year": years,
+            "month": months,
+            "day": days,
+            "time": ALL_TIMES,
+            "data_format": "grib",
+            "download_format": "zip",
+            "area": extent
+        }
+
 
     return split_large_request(request)
