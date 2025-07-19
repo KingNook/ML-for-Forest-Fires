@@ -1,7 +1,9 @@
-testing/**
-data/**
-data-exploration/**
-**/__pycache__/**
+testing/
+data/
+data-exploration/
+__pycache__/
+
+
 .env
 *.ipynb
 *.grib
