@@ -8,6 +8,8 @@ import xarray as xr
 import numpy as np
 import datetime
 
+from dateutil.relativedelta import relativedelta
+
 class MonthlyData:
     '''
     currently returns the whole grid for all variables for given day
@@ -32,24 +34,46 @@ class MonthlyData:
         months = data.keys()
 
         ## check keys are in yyyy-mm format
+        # nb months is array of datetime.datetime objects
         months = [datetime.datetime.strptime(month, self.key_format) for month in months]
 
         self.start_date = min(months)
+        self.end_date = max(months) + relativedelta(day=31)
+
 
         self.data = data
+
+    def __len__(self):
+        '''
+        number of DAYS
+        '''
+
+        td = relativedelta(self.end_date, self.start_date)
+
+        return (self.end_date - self.start_date).days
+        # return td.years * 12 + td.months
 
     def __getitem__(self, index):
 
         if isinstance(index, slice):
             
-            return [self._get_single_item(i) for i in range(index.start, index.stop, index.step)]
+            ## handle empty values eg [:-1]
+            start = index.start if index.start else 0
+            step = index.step if index.step else 1
 
-        elif isinstance(index, int):
+            if index.stop:
+                if index.stop > 0:
+                    stop = index.stop
+                else:
+                    stop = len(self) + index.stop
+            else:
+                stop = len(self)
             
-            return self._get_single_item(index)
+            return [self._get_single_item(i) for i in range(start, stop, step)]
 
         else:
-            raise IndexError(f'{index =} // wtf is that')
+            
+            return self._get_single_item(index)
         
 
     def _get_single_item(self, index):
@@ -59,6 +83,10 @@ class MonthlyData:
 
         ## check if we have enough days (ie check for index error here)
         pass
+
+        if index < 0:
+            new_index = len(self) + index + 1
+            index = new_index
 
         reference_date = self.start_date + datetime.timedelta(days = int(index))
         ref_key = reference_date.strftime(self.key_format)
@@ -113,7 +141,41 @@ class Flattened_MonthlyData:
 
         self.internal_size = np.prod(list(self.dims.values()))
 
+    def __len__(self):
+        '''
+        total number of data points
+        '''
+
+        days = (self.data.end_date - self.data.start_date).days
+
+        return days * self.internal_size
+
     def __getitem__(self, index):
+
+        if isinstance(index, slice):
+            
+            ## handle empty values eg [:-1]
+            start = index.start if index.start else 0            
+            step = index.step if index.step else 1
+
+            if index.stop:
+                if index.stop > 0:
+                    stop = index.stop
+                else:
+                    stop = len(self) + index.stop
+            else:
+                stop = len(self)
+            
+            return [self._get_single_item(i) for i in range(start, stop, step)]
+
+        elif isinstance(index, int):
+            
+            return self._get_single_item(index)
+
+        else:
+            raise IndexError(f'{index =} // wtf is that')    
+
+    def _get_single_item(self, index):
         '''
         goes down by:
         - year
@@ -123,6 +185,13 @@ class Flattened_MonthlyData:
         - lat
         - long
         '''
+
+        if index < 0:
+            new_index = len(self) + index + 1
+            index = new_index
+
+        if index >= len(self):
+            raise IndexError(f'Index {index} is out of range')
 
         indices = divmod(index, self.internal_size)
 
