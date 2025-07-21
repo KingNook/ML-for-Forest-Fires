@@ -52,7 +52,7 @@ def track_runtime(func):
         out = func(*args, **kwargs)
         run_time = time.time() - start_time
 
-        print(f'[{func.__name__()}] run time: {run_time}s')
+        print(f'[{func.__name__}] run time: {run_time}s')
 
         return out
     
@@ -77,7 +77,7 @@ def send_request(
     '''
     idk what would be sensible to return tbh
 
-    if auto_unzip, then will unzip the file imeediately once downloaded // need to implement this
+    if auto_unzip, then will unzip the file imediately once downloaded // need to implement this
     '''
 
     if target == '':
