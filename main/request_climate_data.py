@@ -109,17 +109,12 @@ if __name__ == '__main__':
     extent = ALASKA_RANGE_EXTENT.CDS
 
     requests = CDS_api_requests.era5_land_request(
-    variables = proxy_base_variables, 
-    extent = extent,
-    years = ['2009'],
-    months = [str(i) for i in range(6, 13)] # 6 -> 12 (hopefully)
+        variables = proxy_base_variables, 
+        extent = extent,
+        years = ['2009'],
+        months = ['07'] # [str(i) for i in range(6, 13)] # 6 -> 12 (hopefully)
     )
 
-    for request in requests: 
-
-        month = int(request['month'][0])
-        download_path = f'./data/alaska_prior/2009-{month:02d}_proxy_data.zip'
-
-        send_request(request, target = download_path)
+    download_data(requests, data_name='proxy_data', extent_name='alaska_prior')
 
     unzippify.unpack_data_folder('./data/alaska_prior')
