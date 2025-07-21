@@ -1,6 +1,8 @@
 
 from typing import Literal
 
+## == PROCESSING FUNCTIONS ==
+
 def validate_extent(extent, extent_format: Literal['Firms', 'CDS'] = 'FIRMS'):
     '''
     check input is valid set of FIRMS extents
@@ -54,6 +56,15 @@ def CDS_to_FIRMS(extent):
     FIRMS_extent.append(FIRMS_extent.pop(0))
 
     return FIRMS_extent
+
+## add a 'parse extent' function which parses the Box(extents) strings that i can pull from FIRMS
+def parse_box_extent(box_string):
+    '''
+    yet to write
+    '''
+    pass
+
+## == CONSTANTS ==
 
 class Extent:
 

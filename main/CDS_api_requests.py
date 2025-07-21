@@ -164,6 +164,7 @@ def era5_land_request(
         ) -> list[Request]:
     '''
     extent should be the CDS version
+    by default, selects years 2010-14, splits into monthly requests
     '''
 
     if extent == 'world':
