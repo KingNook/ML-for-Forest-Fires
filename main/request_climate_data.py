@@ -85,6 +85,24 @@ def send_request(
     else:
         client.retrieve(dataset, request, target)
 
+def download_data(
+        requests: list[CDS_api_requests.Request],
+        data_name: str,
+        extent_name: str = 'world'
+        ):
+    '''
+    downloads data to `./data/<extent_name>/<date>_<data_name>.zip
+    '''
+    
+    for request in requests: 
+
+        year = request['year'][0]
+        month = int(request['month'][0])
+        download_path = f'./data/{extent_name}/{year}-{month:02d}_{data_name}.zip'
+
+        send_request(request, target = download_path)
+    
+
 # example code -- downloads and unzips prior data for the alaska range
 if __name__ == '__main__':
 
