@@ -39,6 +39,20 @@ class MonthlyData:
         self.data = data
 
     def __getitem__(self, index):
+
+        if isinstance(index, slice):
+            
+            return [self._get_single_item(i) for i in range(index.start, index.stop, index.step)]
+
+        elif isinstance(index, int):
+            
+            return self._get_single_item(index)
+
+        else:
+            raise IndexError(f'{index =} // wtf is that')
+        
+
+    def _get_single_item(self, index):
         '''
         should return the item from start_date + index days
         '''
