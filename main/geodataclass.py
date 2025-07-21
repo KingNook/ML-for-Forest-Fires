@@ -197,7 +197,7 @@ class Flattened_MonthlyData:
 
         daily_data = self.data[indices[0]]
 
-        hour_sel = divmod(indices[1], self.dims['step']) ## should be 24
+        hour_sel = divmod(indices[1], self.dims['step'])
         lat_sel = divmod(hour_sel[1], self.dims['latitude'])
         long_sel = lat_sel[1]
 
@@ -206,8 +206,8 @@ class Flattened_MonthlyData:
         long = daily_data.longitude
 
         return daily_data.sel(
-            step=hours[hour_sel[0]],
-            latitude=lat[lat_sel[0]],
+            step=hours[hour_sel[1]],
+            latitude=lat[lat_sel[1]],
             longitude=long[long_sel]
         )
 

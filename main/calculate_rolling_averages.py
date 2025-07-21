@@ -13,14 +13,22 @@ data = Flattened_MonthlyData(open_data.open_data_dir(DATA_PATH))
 
 @track_runtime
 def tot_data(data, n):
-    running_totals = [] ## running 30 day totals
+    '''
+    running 30d totals
+    '''
 
-    for i in range(n):
+    prev_total = sum(data[:30])
+    running_totals = []
 
-        running_totals.append(
-            sum(data[i:i+30])
-        )
+    for i in range(n-30):
+        old_data = data[i]
+        new_data = data[i+30]
+
+        new_total = prev_total - old_data + new_data
+
+        running_totals.append(new_total)       
 
     return running_totals
 
-print(tot_data(data, len(data)-30)[0])
+if __name__ == '__main__':
+    print(tot_data(data, len(data))[0])
