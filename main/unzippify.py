@@ -72,3 +72,9 @@ def unpack_data_folder(data_path, remove=False):
     
     return os.listdir(data_path)
 
+
+if __name__ == '__main__':
+
+    folder = 'alaska_prior'
+
+    unpack_data_folder(f'./data/{folder}', remove = True)
