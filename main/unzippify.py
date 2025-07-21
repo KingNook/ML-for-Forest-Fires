@@ -4,7 +4,13 @@ import zipfile
 import contextlib
 
 @contextlib.contextmanager
-def _temp_cwd(new_dir):
+def temp_cwd(new_dir):
+    '''
+    usage:
+
+    with temp_cwd(dir_path):
+        <code>
+    '''
 
     old_cwd = os.getcwd()
 
@@ -53,7 +59,7 @@ def unpack_data_folder(data_path, remove=False):
 
         raise ValueError('Not a valid directory')
 
-    with _temp_cwd(data_path):
+    with temp_cwd(data_path):
 
         files = os.listdir('./')
 
