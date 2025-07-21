@@ -32,7 +32,14 @@ def open_data_dir(data_dir):
         if os.path.isdir(data_path):
 
             # nb idr if this needs to be a file object or if file path is fine
-            new_data = xr.open_dataset(os.path.join(data_path, 'data.grib'), engine='cfgrib', decode_timedelta=False) 
+            new_data = xr.open_dataset(
+                os.path.join(data_path, 'data.grib'), 
+                engine='cfgrib', 
+                decode_timedelta=False,
+                backend_kwargs={
+                    'indexpath':''
+                }
+                ) 
 
             data_dict[key] = new_data
 
