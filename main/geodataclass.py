@@ -1,131 +1,21 @@
-'''
-defines a new array-like data type
-
-main advantage is this should allow us to treat a lazily loaded set of xr.datasets as array-like objects, so we can pass it directly into our ml model
-'''
-
-import xarray as xr
-import numpy as np
-import datetime
-
-from calendar import monthrange
+from datetime import datetime, timedelta
 from dateutil.relativedelta import relativedelta
 
-class MonthlyData:
+import numpy as np
+import xarray as xr
+
+## DATA VALIDATION FUNCTIONS ##
+def validate_month_format(data):
     '''
-    currently returns the whole grid for all variables for given day
-    potentially useful for unet / cnn so will leave like this
-    
-    need different class for inidividual datapoints for rf / dnn though
+    check:
+    - keys are correct format
+    - no missing months
     '''
 
-    def __init__(self, data):
-        '''
-        data should be a dict with:
-        - key -- of the form `yyyy-mm`
-        - value -- an `xarray.dataset` representing the data for that month
-            - should have datapoints for each day in the month under the header `['time']`
+    pass
 
-        also should define the start date as the first day of the first month for which we have data
-        '''
-
-        self.key_format = '%Y-%m'
-
-        ## NEED DATA CHECKS
-        months = data.keys()
-
-        ## check keys are in yyyy-mm format
-        # nb months is array of datetime.datetime objects
-        months = [datetime.datetime.strptime(month, self.key_format) for month in months]
-
-        self.start_date = min(months)
-        self.end_date = max(months) + relativedelta(day=31)
-
-
-        self.data = data
-
-    def __len__(self):
-        '''
-        number of DAYS
-        '''
-
-        td = relativedelta(self.end_date, self.start_date)
-
-        return (self.end_date - self.start_date).days
-        # return td.years * 12 + td.months
-
-    def __getitem__(self, index):
-
-        if isinstance(index, slice):
-            
-            ## handle empty values eg [:-1]
-            start = index.start if index.start else 0
-            step = index.step if index.step else 1
-
-            if index.stop:
-                if index.stop > 0:
-                    stop = index.stop
-                else:
-                    stop = len(self) + index.stop
-            else:
-                stop = len(self)
-            
-            return [self._get_single_item(i) for i in range(start, stop, step)]
-
-        else:
-            
-            return self._get_single_item(index)
-        
-
-    def _get_single_item(self, index):
-        '''
-        should return the item from start_date + index days
-        '''
-
-        ## check if we have enough days (ie check for index error here)
-        pass
-
-        if index < 0:
-            new_index = len(self) + index + 1
-            index = new_index
-
-        reference_date = self.start_date + datetime.timedelta(days = int(index))
-        ref_key = reference_date.strftime(self.key_format)
-        full_key = reference_date.strftime(r'%Y-%m-%d')
-
-        return self.data[ref_key].sel(time=full_key)
-
-    def __iter__(self):
-        return CustomIterator(self)
-
-class HourlyData(MonthlyData):
-
-    def __init__(self, data):
-        super().__init__(data)
-
-    def _get_single_item(self, index):
-        '''
-        return the lat/long array for a single hours
-        '''
-
-        day_hour_split = divmod(index, 24)
-
-        month = super()._get_single_item(day_hour_split[0])
-
-        day = month.sel(step=day_hour_split[1]+1)
-
-        return day
-    
-    def __len__(self):
-
-        return super().__len__() * 24
-
-
-
+## CUSTOM ITERATOR CLASS ##
 class CustomIterator:
-    '''
-    just in case if array_like is called as an iterable
-    '''
 
     def __init__(self, data):
         self.idx = 0
@@ -144,43 +34,85 @@ class CustomIterator:
             self.idx = 0
             raise StopIteration
 
-class Flattened_MonthlyData:
+## CUSTOM CLASSES ##
+class MonthlyData:
     '''
-    ith index will take only one datapoint (one lat/long coord from 1 hour from 1 day)
+    Class to allow array-like access (indexed monthly) to a collection of DataSets
     '''
 
-    def __init__(self, data):
+    def __init__(
+            self,
+            data: dict[str, xr.DataSet],
+            region: str = ''
+    ):
         '''
-        data should be `xr.DataSet` with fields:
-        - time (datetime)
-        - step (float64, ranges from 1.0 to 24.0 -- represents which hour of the day)
-        - latitude
-        - longitude
+        input:
+        - `data` -- a dictionary with:
+            - keys (`str`) of the form `yyyy-mm` representing the month of the data
+            - values (`xr.DataSet`) data from the corresponding month
+        - `region` -- geographical region which the data describes
+        '''
+        
+        ## should validate data:
+        # no missing datapoints
+        # all the same dimensions (lat/long/time)
 
-        idea is to flatten wrt the lat/long/time axes
+        self.data = data
+        self.sizes = data[0].sizes
+
+        self.grid_shape = (self.sizes['longitude'], self.sizes['latitude'])
+
+        self.key_format = f'%Y-%m'
+        
+        months = data.keys()
+
+        validate_month_format(months, self.key_format)
+
+        self.months = [
+            datetime.strptime(month, self.key_format) for month in months
+        ]
+
+        self.start_date = min(self.months)
+        self.end_date = max(self.months) + relativedelta(day=31)
+
+        self.period = (self.end_date - self.start_date).days
+
+    ## DATA VALIDATION ##
+    def _validate_index(self, i: int) -> int:
+        '''
+        validates <i> as an index, and returns i as an int type
+        (since it may potentially come in as a weird int-like datatype eg np.int64)
         '''
 
-        self.data = MonthlyData(data)
+        # check i int-like
+        if int(i) != i:
+            raise TypeError(f'Index {i} insufficiently int-like')
 
-        self.dims = self.data[0].sizes ## SHOULD CHECK THAT THIS IS CONSISTENT ACROSS ALL DATAPTS
+        # adjust for negatives
+        if i < 0:
+            index = int(i + len(self) + 1)
+        else:
+            index = int(i)
 
-        self.internal_size = np.prod(list(self.dims.values()))
+        # index should initially lie within [-length, +length)
+        if index < 0 or index >= len(self):
+            raise IndexError(f'Index {index} out of range for {__name__} of length {len(self)}')
+        
+        return index
 
+    ## HIDDEN METHODS ##
     def __len__(self):
         '''
-        total number of data points
+        number of MONTHS in dataset
         '''
 
-        days = (self.data.end_date - self.data.start_date).days
-
-        return days * self.internal_size
+        return len(self.months)
 
     def __getitem__(self, index):
-
         if isinstance(index, slice):
             
             ## handle empty values eg [:-1]
-            start = index.start if index.start else 0            
+            start = index.start if index.start else 0
             step = index.step if index.step else 1
 
             if index.stop:
@@ -193,48 +125,92 @@ class Flattened_MonthlyData:
             
             return [self._get_single_item(i) for i in range(start, stop, step)]
 
-        elif isinstance(index, int):
-            
-            return self._get_single_item(index)
-
         else:
-            raise IndexError(f'{index =} // wtf is that')    
-
-    def _get_single_item(self, index):
+            i = self._validate_index(index)
+            return self._get_single_item(i)
+        
+    def _get_single_item(self, i: int):
         '''
-        goes down by:
-        - year
-        - month
-        - day
-        - hour
-        - lat
-        - long
+        return Dataset from <i>th month
         '''
 
-        if index < 0:
-            new_index = len(self) + index + 1
-            index = new_index
+        ## THE REST OF THE FUNCTION ##
+        reference_date = self.start_date + relativedelta(months = i)
+        key = reference_date.strftime(self.key_format)
 
-        if index >= len(self):
-            raise IndexError(f'Index {index} is out of range')
-
-        indices = divmod(index, self.internal_size)
-
-        daily_data = self.data[indices[0]]
-
-        hour_sel = divmod(indices[1], self.dims['step'])
-        lat_sel = divmod(hour_sel[0], self.dims['latitude'])
-        long_sel = lat_sel[0]
-
-        hours = daily_data.step
-        lat = daily_data.latitude
-        long = daily_data.longitude
-
-        return daily_data.sel(
-            step=hours[hour_sel[1]],
-            latitude=lat[lat_sel[1]],
-            longitude=long[long_sel]
-        )
-
+        return self.data[key]
+    
     def __iter__(self):
         return CustomIterator(self)
+
+
+class DailyData(MonthlyData):
+    '''
+    Class to allow array-like access (indexed daily) to a collection of DataSets
+    '''
+
+    def __init__(self, data):
+        super().__init__(data)
+
+    def __len__(self):
+        return self.period
+
+    def _get_single_item(self, i: int):
+        '''
+        get Dataset from <i>th day
+        '''
+
+        ref_date = self.start_date + timedelta(days = i)
+        month_key = ref_date.strftime(self.key_format) # key for self.data
+        time_key = ref_date.strftime(r'%Y-%m-%d') # matches format of 'time' column in dataset
+
+        return self.data[month_key].sel(time=time_key)
+
+
+class HourlyData(DailyData):
+    '''
+    Class to allow array-like access (indexed hourly) to a collection of DataSets
+    '''
+
+    def __init__(self, data):
+        super().__init__(data)
+
+    def __len__(self):
+        return super().__len__() * 24
+    
+    def _get_single_item(self, i: int):
+
+        ref_date = self.start_date + timedelta(hours=i)
+        month_key = ref_date.strftime(self.key_format)
+        time_key = ref_date.strftime(r'%Y-%m-%d')
+        step_key = ref_date.hour + 1.0 # want this to be a float, and ranges from 1.0 to 24.0
+
+        return self.data[month_key].sel(
+            time=time_key,
+            step=step_key
+        )
+
+
+class FlattenedData(HourlyData):
+    '''
+    Class to allow array-like access (indexed point-wise wrt lat/long) to a collection of DataSets
+    '''
+
+    def __init__(self, data):
+        super().__init__(data)
+    
+    def _get_single_item(self, i):
+
+        grid_cells = np.prod(self.grid_shape)
+        
+        ## time/space split -- quotient is hour index, remainder is corr cell
+        ts_split = divmod(i, grid_cells) 
+
+        hour_data = super()._get_single_item(ts_split[0])
+
+        long, lat = divmod(ts_split[1], self.grid_shape[1])
+
+        return hour_data.sel(
+            longitude = long,
+            latitude = lat
+        )
