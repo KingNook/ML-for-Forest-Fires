@@ -8,6 +8,7 @@ import xarray as xr
 import numpy as np
 import datetime
 
+from calendar import monthrange
 from dateutil.relativedelta import relativedelta
 
 class MonthlyData:
@@ -97,6 +98,30 @@ class MonthlyData:
     def __iter__(self):
         return CustomIterator(self)
 
+class HourlyData(MonthlyData):
+
+    def __init__(self, data):
+        super().__init__(data)
+
+    def _get_single_item(self, index):
+        '''
+        return the lat/long array for a single hours
+        '''
+
+        day_hour_split = divmod(index, 24)
+
+        month = super()._get_single_item(day_hour_split[0])
+
+        day = month.sel(step=day_hour_split[1]+1)
+
+        return day
+    
+    def __len__(self):
+
+        return super().__len__() * 24
+
+
+
 class CustomIterator:
     '''
     just in case if array_like is called as an iterable
@@ -118,7 +143,7 @@ class CustomIterator:
         except IndexError:
             self.idx = 0
             raise StopIteration
-        
+
 class Flattened_MonthlyData:
     '''
     ith index will take only one datapoint (one lat/long coord from 1 hour from 1 day)
@@ -198,8 +223,8 @@ class Flattened_MonthlyData:
         daily_data = self.data[indices[0]]
 
         hour_sel = divmod(indices[1], self.dims['step'])
-        lat_sel = divmod(hour_sel[1], self.dims['latitude'])
-        long_sel = lat_sel[1]
+        lat_sel = divmod(hour_sel[0], self.dims['latitude'])
+        long_sel = lat_sel[0]
 
         hours = daily_data.step
         lat = daily_data.latitude
