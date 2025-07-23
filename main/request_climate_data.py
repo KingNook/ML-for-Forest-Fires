@@ -4,6 +4,10 @@ import datetime
 
 import time
 
+import threading
+
+from math import ceil
+
 import CDS_api_requests, unzippify
 from extents import ALASKA_RANGE_EXTENT
 
@@ -101,10 +105,45 @@ def download_data(
         download_path = f'./data/{extent_name}/{year}-{month:02d}_{data_name}.zip'
 
         send_request(request, target = download_path)
+
+def multi_download(
+        requests: list[CDS_api_requests.Request],
+        data_name: str,
+        extent_name: str = 'world',
+        max_threads: int = 2
+    ):    
+    '''
+    uses multi-threading to speed up download process (hopefully)
+    i don't know how many is appropriate to use at once -- i'll start with 3 perhaps? and see from there
+    max_threads defaults to 2 unless otherwise specified (anything more than that doesn't seem to have any benefit)
+    '''
+
+    if max_threads == -1:
+        max_threads = len(requests)
+
+    jobs = []
+    job_size = ceil(len(requests) / max_threads)
     
+    for i in range(max_threads-1):
+        job = requests[i * job_size : (i+1) * job_size]
+        jobs.append(job)
+
+    jobs.append(requests[(max_threads-1)*job_size:])
+
+    threads = []
+
+    for job in jobs:
+        thread = threading.Thread(target=download_data, args=(job, data_name, extent_name))
+        threads.append(thread)
+        thread.start()
+
+    for thread in threads:
+        thread.join()
 
 # example code -- downloads and unzips prior data for the alaska range
 if __name__ == '__main__':
+
+
 
     extent = ALASKA_RANGE_EXTENT.CDS
 
@@ -115,6 +154,6 @@ if __name__ == '__main__':
         months = ['07'] # [str(i) for i in range(6, 13)] # 6 -> 12 (hopefully)
     )
 
-    download_data(requests, data_name='proxy_data', extent_name='alaska_prior')
+    '''download_data(requests, data_name='proxy_data', extent_name='alaska_prior')
 
-    unzippify.unpack_data_folder('./data/alaska_prior')
+    unzippify.unpack_data_folder('./data/alaska_prior')'''
