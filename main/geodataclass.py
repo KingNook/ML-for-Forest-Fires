@@ -5,7 +5,7 @@ import numpy as np
 import xarray as xr
 
 ## DATA VALIDATION FUNCTIONS ##
-def validate_month_format(data):
+def validate_month_format(data, key_format):
     '''
     check:
     - keys are correct format
@@ -42,7 +42,7 @@ class MonthlyData:
 
     def __init__(
             self,
-            data: dict[str, xr.DataSet],
+            data: dict[str, xr.Dataset],
             region: str = ''
     ):
         '''
@@ -58,13 +58,14 @@ class MonthlyData:
         # all the same dimensions (lat/long/time)
 
         self.data = data
-        self.sizes = data[0].sizes
-
-        self.grid_shape = (self.sizes['longitude'], self.sizes['latitude'])
 
         self.key_format = f'%Y-%m'
         
-        months = data.keys()
+        months = tuple(data.keys())
+
+        self.sizes = data[months[0]].sizes
+
+        self.grid_shape = (self.sizes['longitude'], self.sizes['latitude'])
 
         validate_month_format(months, self.key_format)
 
@@ -201,7 +202,9 @@ class FlattenedData(HourlyData):
     
     def _get_single_item(self, i):
 
-        grid_cells = np.prod(self.grid_shape)
+        # np.prod returns a np.int64 object which causes issues for some methods
+        # but can be converted into a python int object w/out losing any information
+        grid_cells = int(np.prod(self.grid_shape))
         
         ## time/space split -- quotient is hour index, remainder is corr cell
         ts_split = divmod(i, grid_cells) 
