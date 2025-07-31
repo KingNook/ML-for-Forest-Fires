@@ -4,13 +4,52 @@ given a directory, reads the data into some sort of datastructure
 directory should look like: data/<dir_name>/<yyyy>-<mm>_<data_name>
 '''
 
-import os
-import xarray as xr
 import cfgrib
 
+import os
+import xarray as xr
+
+from geodataclass import *
+from request_climate_data import track_runtime
 from unzippify import temp_cwd
 
-def open_data_dir(data_dir):
+@track_runtime
+def read_grib_file(data_path):
+    '''
+    sub_function -- reads data_path/data.grib, returns grib file (opened)
+    '''
+
+    try:
+        if os.path.isdir(data_path):
+            new_data = xr.open_dataset(
+                os.path.join(data_path, 'data.grib'), 
+                engine='cfgrib', 
+                decode_timedelta=False,
+                backend_kwargs={
+                    'indexpath':''
+                }
+                )
+    except cfgrib.dataset.DatasetBuildError:
+        print('oops')
+
+    return new_data
+    
+def generate_kv_pair(data_dir, data_point):
+
+    key = data_point[:7]
+
+    data_path = os.path.join(data_dir, data_point)
+
+    print(f'reading {data_path}')
+
+    new_data = read_grib_file(data_path)
+
+    return {key: new_data}
+
+@track_runtime
+def open_data_dir(
+        data_dir: str
+    ) -> dict[str, xr.Dataset]:
     '''
     hopefully this should lazy load a whole directory of datasets -- 
 
@@ -23,25 +62,9 @@ def open_data_dir(data_dir):
     data_dict = dict()
     for data_point in files:
         
-        key = data_point[:7]
+        kv = generate_kv_pair(data_dir, data_point)
 
-        data_path = os.path.join(data_dir, data_point)
-
-        print(f'reading {data_path}')
-
-        if os.path.isdir(data_path):
-
-            # nb idr if this needs to be a file object or if file path is fine
-            new_data = xr.open_dataset(
-                os.path.join(data_path, 'data.grib'), 
-                engine='cfgrib', 
-                decode_timedelta=False,
-                backend_kwargs={
-                    'indexpath':''
-                }
-                ) 
-
-            data_dict[key] = new_data
+        data_dict.update(kv)
 
     print('done!')
 
@@ -49,11 +72,17 @@ def open_data_dir(data_dir):
 
 if __name__ == '__main__':
 
-    test = open_data_dir('./data/alaska_prior')
+    # testing gdc behaviour
+    data = DailyData(generate_kv_pair('./data/alaska_main/', '2014-11_input_data'))
 
-    import geodataclass
+    print(data[0]['u10']**1)
+    print(data[0]['u10']**2)
+    print((data[0]['u10']**2)**0.5)
 
-    test2 = geodataclass.MonthlyData(test)
+def close_data_dir(data: dict[str, xr.Dataset]):
+    '''
+    closes all datasets to free up resources
+    '''
 
-    for i in test2:
-        print(i)
+    for ds in data.values():
+        ds.close()
