@@ -2,9 +2,12 @@ testing/
 data/
 data-exploration/
 __pycache__/
+.*/
 
 .env
 *.ipynb
 *.grib
 *.idx
 *.zip
+
+!main/model.ipynb
