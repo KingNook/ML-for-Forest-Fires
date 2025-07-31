@@ -8,6 +8,8 @@ import threading
 
 from math import ceil
 
+from tools import track_runtime
+
 import CDS_api_requests, unzippify
 from extents import ALASKA_RANGE_EXTENT
 
@@ -154,6 +156,4 @@ if __name__ == '__main__':
         months = ['07'] # [str(i) for i in range(6, 13)] # 6 -> 12 (hopefully)
     )
 
-    '''download_data(requests, data_name='proxy_data', extent_name='alaska_prior')
-
-    unzippify.unpack_data_folder('./data/alaska_prior')'''
+    
