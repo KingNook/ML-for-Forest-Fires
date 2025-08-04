@@ -1,11 +1,13 @@
 import torch
 import numpy as np
 import pandas as pd
+import os
+import json
 
 from torch import nn
 from torch.utils.data import DataLoader, Dataset
-from torchvision import datasets
 
+from compute_wind_speed import append_wind_speed
 from open_data import open_data_dir
 from geodataclass import FlattenedData
 from open_fire_data import FlattenedTruthTable
@@ -15,23 +17,32 @@ class DNN(nn.Module):
     predictor for 1 variable
     '''
 
-    def __init__(self, input_size = 10, output_size = 1):
+    def __init__(self, input_size = 13, output_size = 1, hidden_sizes = [10, 10, 10]):
         super(DNN, self).__init__()
-        self.network = nn.Sequential(
-            nn.Linear(input_size, 20),
-            nn.ReLU(),
-            nn.Linear(20, 20),
-            nn.ReLU(),
-            nn.Linear(20, output_size)
-        )
+        
+        assert type(hidden_sizes) == list or type(hidden_sizes) == tuple
+        assert len(hidden_sizes) >= 1
+        
+        self.layers = [nn.Linear(input_size, hidden_sizes[0]), nn.ReLU()]
+
+        for i in range(1, len(hidden_sizes)-1):
+            self.layers.append(nn.Linear(hidden_sizes[i-1], hidden_sizes[i]))
+            self.layers.append(nn.ReLU())
+        
+        self.layers.append(nn.Linear(hidden_sizes[-1], output_size))
+        self.layers.append(nn.Sigmoid())
+
+        self.network = nn.Sequential(*self.layers)
+        
 
     def forward(self, x):
+
         return self.network(x)
     
 
 class geoDataset(Dataset):
 
-    def __init__(self, input_data: FlattenedData, fire_data: FlattenedTruthTable):
+    def __init__(self, input_data: FlattenedData, fire_data: FlattenedTruthTable, batch_prep = False):
         '''
         input data is climate variables <br>
         training data is fire data
@@ -39,6 +50,8 @@ class geoDataset(Dataset):
 
         self.input_data = input_data
         self.fire_data = fire_data
+
+        self.batch_prep = batch_prep
 
         ## validation eg have the same number of datapoints
 
@@ -54,10 +67,126 @@ class geoDataset(Dataset):
         '''
 
         features = [self.input_data[index, i] for i in range(self.input_data.feature_num)]
-        label = self.training_data[index]
+        feature_tensor = torch.tensor(features)
+        label = self.fire_data[index]
 
-        return features, label
+        if label == 1:
+            print(f'{feature_tensor = }, {label = }')
 
+        if self.batch_prep:
+            return features, label
+        
+        return feature_tensor, label
+
+def save_batches(
+        data: geoDataset,
+        save_path: str,
+        batch_size: int = 64, 
+        batch_num: int = 50,
+        dataset_name: str = None,
+        drop_last: bool = False):
+    '''
+    divides data into batches then saves batches to disk in separate files (?) so can be loaded individually
+    each batch should be readable as a torch tensor (although it will likely be written to a json file)
+
+    # args
+    - **data**: *geoDataset* / similar \\
+    dataset to be divvied up
+    - **batch_size**: *int* \\
+    size of each batch
+    - **batch_num**: *int* \\
+    number of batches per file
+    - **save_path**: *path_like* \\
+    path to directory to which batches will be saved
+    '''
+
+    dataset_name = dataset_name if dataset_name != None else ''
+    file_length = batch_size * batch_num ## samples per file
+
+    total_data_size = len(data)
+
+    from math import ceil
+    total_files = ceil(total_data_size / file_length)
+
+    ## write to settings.json to make reading files easier
+    with open(os.path.join(save_path, 'settings.json'), 'w') as settings_file:
+        settings_file.write(json.dumps({
+            'batch_size': batch_size,
+            'batch_num': batch_num,
+            'num_files': total_files,
+            'batch_name': dataset_name if dataset_name else None
+        }))
+
+    print(f'[save_batches] {total_files} files')
+
+    for i in range(total_files):
+        print(f'[save_batches] batch {i} / {total_files}')
+        file_name = f'{dataset_name}-batch_{i}.json' if dataset_name else f'batch_{i}.json'
+        file_path = os.path.join(save_path, file_name)
+
+        with open(file_path, 'w') as batch_file:
+            # grab samples i * batch size to i * batch_size + 1
+            start_point = i * file_length
+
+            for j in range(batch_num):
+                features = []
+                labels = []
+                batch_start = start_point + j * batch_size
+                for k in range(batch_size):
+                    sample_num = batch_start + k
+                    if sample_num < total_data_size:
+                        sample = data[sample_num]
+                        features.append(sample[0])
+                        labels.append(sample[1])
+                    else:
+                        break ## avoid pointless iteration
+
+                ## each batch should be [(n features), (n samples)]
+
+                batch_file.write(json.dumps((features, labels))) 
+                batch_file.write('\n')
+
+class BatchDataLoader:
+    
+    def __init__(self, data_dir_path):
+
+        self.path = data_dir_path
+
+    def load_batches(self):
+        '''
+        returns iterator which gives one batch each time
+        '''
+
+        data_files = os.listdir(self.path)
+
+        ## check only files of correct form
+        if 'settings.json' in data_files:
+            ## read settings
+            with open('settings.json', 'r') as settings_file:
+                settings = json.load(settings_file)
+
+        else:
+            ## default settings
+            settings = {
+                'batch_size': 64,
+                'batch_num': 1,
+                'num_files': 1,
+                'dataset_name': None
+            }
+
+        for file_num in range(settings['num_files']):
+            file_name = f'{settings['dataset_name']}-batch_{file_num}.json' if settings['dataset_name'] else f'batch_{file_num}.json'
+            file_path = os.path.join(self.path, file_name)
+            with open(file_path, 'r') as batch_file:
+                for line in batch_file:
+                    ## should read line by line
+                    batch = json.loads(line) # loads as list of (feature, label) pairs
+                    yield batch
+
+    def __iter__(self):
+        return self.load_batches()
+
+    
 
 if __name__ == '__main__':
     device = torch.accelerator.current_accelerator().type if torch.accelerator.is_available() else "cpu"
@@ -66,70 +195,23 @@ if __name__ == '__main__':
     model = DNN().to(device)
     print(model)
 
-    loss_fn = nn.CrossEntropyLoss()
-    optimizer = torch.optim.SGD(model.parameters(), lr=1e-3)
-
-    def train(dataloader, model, loss_fn, optimizer):
-        size = len(dataloader.dataset)
-        model.train()
-        for batch, (X, y) in enumerate(dataloader):
-            X, y = X.to(device), y.to(device)
-
-            # Compute prediction error
-            pred = model(X)
-            loss = loss_fn(pred, y)
-
-            # Backpropagation
-            loss.backward()
-            optimizer.step()
-            optimizer.zero_grad()
-
-            if batch % 100 == 0:
-                loss, current = loss.item(), (batch + 1) * len(X)
-                print(f"loss: {loss:>7f}  [{current:>5d}/{size:>5d}]")
-
-
-    def test(dataloader, model, loss_fn):
-        size = len(dataloader.dataset)
-        num_batches = len(dataloader)
-        model.eval()
-        test_loss, correct = 0, 0
-        with torch.no_grad():
-            for X, y in dataloader:
-                X, y = X.to(device), y.to(device)
-                pred = model(X)
-                test_loss += loss_fn(pred, y).item()
-                correct += (pred.argmax(1) == y).type(torch.float).sum().item()
-        test_loss /= num_batches
-        correct /= size
-        print(f"Test Error: \n Accuracy: {(100*correct):>0.1f}%, Avg loss: {test_loss:>8f} \n")
-
-
-    batch_size = 64
-
-    # Create data loaders.
+    ## save data into batches
     input_data = FlattenedData(
-        data=open_data_dir('./data/alaska_TEST_DATA'),
-        prior_data = open_data_dir('./data/alaska_prior')
+        data=append_wind_speed(open_data_dir('./data/la_forest_main')),
+        prior_data = open_data_dir('./data/la_forest_prior'),
     )
 
-    fire_data = FlattenedTruthTable(
-        pd.read_csv(
-            './data/FIRE/alaska_range_csv/data.csv',
+    fire_data = pd.read_csv(
+            './data/_FIRE/la_forest_csv/data.csv',
             parse_dates = ['acq_date']
         )
-    )
-    print('data  read')
 
-    training_data = geoDataset(input_data, fire_data)
-    test_data = training_data
+    fire_data = fire_data[
+        (fire_data['type'] == 0) & (fire_data['confidence'] >= 60)
+    ]
 
-    train_dataloader = DataLoader(training_data, batch_size=batch_size)
-    test_dataloader = DataLoader(test_data, batch_size=batch_size)
+    fire_data = FlattenedTruthTable(fire_data)
 
-    epochs = 5
-    for t in range(epochs):
-        print(f"Epoch {t+1}\n-------------------------------")
-        train(train_dataloader, model, loss_fn, optimizer)
-        test(test_dataloader, model, loss_fn)
-    print("Done!")
+    training_data = geoDataset(input_data, fire_data, True)
+
+    save_batches(training_data, './data/TEST_training_batches/la_forest')
