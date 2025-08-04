@@ -68,7 +68,7 @@ def parse_box_extent(box_string):
 
 class Extent:
 
-    def __init__(self, FIRMS_extent):
+    def __init__(self, FIRMS_extent, name = ''):
         '''
         extent in FIRMS form (min long, min lat, max long, max lat)
         '''
@@ -76,6 +76,7 @@ class Extent:
         validate_extent(FIRMS_extent)
 
         self.FIRMS = FIRMS_extent
+        self.name = name
 
     @property
     def CDS(self):
@@ -98,3 +99,6 @@ INDO_MALAY_RANGE_EXTENT = Extent([94.9, -6.7, 106.6, 6.5])
 
 # northern tip of Northern Territory and Queensland (AUS)
 NORTH_AUSTRALIA_EXTENT = Extent([129.0, -16.9, 145.5, -10.1])
+
+# california (should all be land)
+LA_FORESTS_EXTENT = Extent([-118.3,33.9,-116.5,34.7])

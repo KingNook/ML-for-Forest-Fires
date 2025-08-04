@@ -9,7 +9,7 @@ if __name__ == '__main__':
     )
 
     veg_files = fire_data[
-        (fire_data['type'] == 0) & (fire_data['confidence'] >= 50)
+        (fire_data['type'] == 0) & (fire_data['confidence'] >= 60)
     ]
 
     important_vars = [
@@ -34,6 +34,8 @@ if __name__ == '__main__':
         names = important_vars
     )
 
+    print(fire_ds)
+
 class FlattenedTruthTable:
     '''
     holds a dataframe and a coord range -- translates index into long/lat/time coords, then checks against table to see if there is an entry
@@ -53,7 +55,7 @@ class FlattenedTruthTable:
 
         ## return 1 if yes fire and 0 if not
         fire_series = self.data[
-            (self.data['longitude']==long) & (self.data['latitude']==lat) & (self.data['acq_time']==ts_split[0]) & (self.data['confidence'] >= 70)
+            (self.data['longitude']==long) & (self.data['latitude']==lat) & (self.data['acq_time']==ts_split[0])
         ]
 
         if fire_series.empty:

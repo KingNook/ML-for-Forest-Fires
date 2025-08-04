@@ -9,6 +9,7 @@ from typing import Literal
 
 from tools import track_runtime
 
+
 def hourlydaterange(start_date, end_date):
     hours = (end_date - start_date).days * 24
     for n in range(0, hours):
@@ -207,16 +208,22 @@ class HourlyData(DailyData):
         time_key = ref_date.strftime(r'%Y-%m-%d')
         step_key = ref_date.hour + 1.0 # want this to be a float, and ranges from 1.0 to 24.0
 
+        ## the final hour of the final day is stored in the next month (since it is technically 0:00 of the next month)
+        new_month_key = (ref_date + timedelta(days = 1)).strftime(self.key_format)
+        if step_key == 24.0 and new_month_key != month_key:
+            month_key = new_month_key
+            ref_date = ref_date + timedelta(days = 1)
+
         if ref_date >= self.start_date:
             return self.data[month_key].sel(
                 time=time_key,
                 step=step_key
-            )
+            ).interpolate_na(dim='longitude')
         else:
             return self.prior_data[month_key].sel(
                 time=time_key,
                 step=step_key
-            )
+            ).interpolate_na(dim='longitude')
     
     def _get_single_item(self, i: int):
 
@@ -230,7 +237,6 @@ class HourlyData(DailyData):
         '''
         compute proxy vars and add them to dataset
         '''
-        print(f'computing proxes: {var_names = }')
         date_form = r'%Y-%m-%d'
 
         final_names = [f'tot_{var_name}' for var_name in var_names]
@@ -245,6 +251,7 @@ class HourlyData(DailyData):
 
         for i in range(len(var_names)):
             var_name = var_names[i]
+            print(f'[HourlyData] computing proxy: {var_name = }')
 
             rolling_total = [self._get_hourly_data_by_date(warmup_start_date)[var_name]]
 
@@ -273,8 +280,8 @@ class HourlyData(DailyData):
 
                 old_total = rolling_total[-1].to_numpy()
 
-                old_data = self._get_hourly_data_by_date(date - timedelta(days=30))[var_name].fillna(0).to_numpy().reshape(old_total.shape)
-                new_data = self._get_hourly_data_by_date(date)[var_name].fillna(0).to_numpy().reshape(old_total.shape)
+                old_data = self._get_hourly_data_by_date(date - timedelta(days=30))[var_name].to_numpy().reshape(old_total.shape)
+                new_data = self._get_hourly_data_by_date(date)[var_name].to_numpy().reshape(old_total.shape)
 
                 new_total_np = old_total - old_data + new_data
 
@@ -292,9 +299,13 @@ class HourlyData(DailyData):
 
                 rolling_total.append(new_total)
 
+            print('totals calculated')
+
             for i in range(len(rolling_total)):
 
                 rolling_total[i] = rolling_total[i].stack(datetime = ['time', 'step'])
+
+            print('datetime stacked')
 
             prior_totals = xr.concat(
                 objs = rolling_total[:prior_period],
@@ -468,7 +479,7 @@ class FlattenedData(HourlyData):
             raise IndexError(f'Unknown feature number, {var_index = }')
         
         ref_var = f'tot_{var_name}' # 30 day total
-        current_date = sample.time.values ## should give np.datetime64 since only 1 value
+        current_date = pd.to_datetime(sample.time.values)
         coords = (np.float64(sample.latitude.values), np.float64(sample.longitude.values))
         match m:
             case 0:
@@ -504,7 +515,7 @@ class FlattenedData(HourlyData):
 
             sample = super().__getitem__(sample_num)
 
-            return self._get_feature(sample, feature_num)
+            return float(self._get_feature(sample, feature_num).values)
 
 
         else: # dataset / list of datasets branch
@@ -512,16 +523,13 @@ class FlattenedData(HourlyData):
         
     def _get_local_data(self, data, coords):
         '''
-        coords are (long, lat)
+        coords are (lat, long)
         '''
 
-        long_vals = data.longitude
-        lat_vals = data.latitude
-
         return data.sel(
-            longitude = long_vals[coords[0]],
-            latitude = lat_vals[coords[1]]
-        )
+            longitude = coords[1],
+            latitude = coords[0]
+        ).interpolate_na(dim='longitude')
 
 
     def _get_single_item(self, i):
