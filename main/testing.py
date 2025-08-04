@@ -1,6 +1,6 @@
 from geodataclass import FlattenedData
 
-from open_data import open_data_dir
+from open_data import open_data_dir, data_dir_to_zarr
 
 import warnings
 import traceback
@@ -9,7 +9,6 @@ import sys
 import numpy as np
 
 def clean_nan(dds):
-
     for k, v in dds.items():
         dds[k] = v.fillna(0)
 
@@ -22,13 +21,11 @@ def custom_warning(message, category, filename, lineno, file=None, line=None):
     pass
 
 warnings.showwarning = custom_warning
-
+'''
 data = clean_nan(open_data_dir('./data/alaska_TEST_DATA'))
 
-prior_data = clean_nan(open_data_dir('./data/alaska_prior'))
+for key in data.keys():
+    data[key].to_zarr(f'./zarr_test/{key}_alaskaTEST')
+'''
 
-fd = FlattenedData(data, prior_data)
-
-test_pt = fd[0]
-
-vars = test_pt.variables
+print(data_dir_to_zarr('./data/alaska_main', './data/_ZARR_FILES/alaska_full.zarr'))
