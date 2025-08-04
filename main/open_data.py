@@ -100,4 +100,5 @@ def data_dir_to_zarr(dd_path: str, zarr_path: str):
 
     total_ds = xr.concat(datasets, dim='time', data_vars='all') ## xr.Dataset
     
-    return total_ds.to_zarr(zarr_path)
+    total_ds.to_zarr(zarr_path)
+    print(f'data saved to {zarr_path}')
