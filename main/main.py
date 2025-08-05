@@ -23,7 +23,7 @@ def merge_data(dds) -> xr.Dataset:
     '''
     take a dict of datasets and merge
     '''
-    return xr.concat([ds for ds in dds.values()])
+    return xr.concat([ds for ds in dds.values()], dim='time')
 
 merge_data(input_data.data).to_zarr('./data/_ZARR_READY/alaska_main')
 merge_data(input_data.prior_data).to_zarr('./data/_ZARR_READY/alaska_prior')

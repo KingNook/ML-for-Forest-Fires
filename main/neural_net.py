@@ -9,7 +9,7 @@ from torch.utils.data import DataLoader, Dataset
 
 from compute_wind_speed import append_wind_speed
 from open_data import open_data_dir
-from geodataclass import FlattenedData
+from dask_addons import FlattenedDaskDataset
 from open_fire_data import FlattenedTruthTable
 
 class DNN(nn.Module):
@@ -42,9 +42,14 @@ class DNN(nn.Module):
 
 class geoDataset(Dataset):
 
-    def __init__(self, input_data: FlattenedData, fire_data: FlattenedTruthTable, batch_prep = False):
+    def __init__(
+            self, 
+            input_data: FlattenedDaskDataset, 
+            fire_data: FlattenedTruthTable, 
+            batch_prep: bool = False, 
+            feature_num: int = -1):
         '''
-        input data is climate variables <br>
+        input data is climate variables \\
         training data is fire data
         '''
 
@@ -52,6 +57,8 @@ class geoDataset(Dataset):
         self.fire_data = fire_data
 
         self.batch_prep = batch_prep
+
+        self.feature_num = feature_num if feature_num > 0 else input_data.feature_num
 
         ## validation eg have the same number of datapoints
 
@@ -66,7 +73,7 @@ class geoDataset(Dataset):
         - label is the relevant fire data (either 1 or 0)
         '''
 
-        features = [self.input_data[index, i] for i in range(self.input_data.feature_num)]
+        features = [self.input_data[index, i] for i in range(self.feature_num)]
         feature_tensor = torch.tensor(features)
         label = self.fire_data[index]
 
@@ -185,33 +192,22 @@ class BatchDataLoader:
 
     def __iter__(self):
         return self.load_batches()
-
     
 
-if __name__ == '__main__':
-    device = torch.accelerator.current_accelerator().type if torch.accelerator.is_available() else "cpu"
-    print(f"Using {device} device")
+def train(model, dataloader, loss_fn, optimizer):
 
-    model = DNN().to(device)
-    print(model)
+    size = len(dataloader.dataset)
+    model.train()
 
-    ## save data into batches
-    input_data = FlattenedData(
-        data=append_wind_speed(open_data_dir('./data/la_forest_main')),
-        prior_data = open_data_dir('./data/la_forest_prior'),
-    )
+    for batch, (X, y) in enumerate(dataloader):
+        prediction = model(X)
+        loss = loss_fn(prediction, y)
 
-    fire_data = pd.read_csv(
-            './data/_FIRE/la_forest_csv/data.csv',
-            parse_dates = ['acq_date']
-        )
+        loss.backward()
+        optimizer.step()
+        optimizer.zero_grad()
 
-    fire_data = fire_data[
-        (fire_data['type'] == 0) & (fire_data['confidence'] >= 60)
-    ]
+        if batch % 100 == 0:
+            loss, current = loss.item(), (batch + 1) * len(X)
+            print(f"loss: {loss:>7f}  [{current:>5d}/{size:>5d}]")
 
-    fire_data = FlattenedTruthTable(fire_data)
-
-    training_data = geoDataset(input_data, fire_data, True)
-
-    save_batches(training_data, './data/TEST_training_batches/la_forest')
