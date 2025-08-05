@@ -201,6 +201,100 @@ class FlattenedDaskDataset:
         else:
             raise TypeError(f'Invalid index, {key}, with type {type(key) = }')
         
+    def _get_feature(self, sample, var_index):
+        '''
+        ***copied from `geodataclass.py`***
+        ## Parameters
+        **sample**: *xarray.Dataset* \\
+        should contain a single point and contain **exactly** the variables listed below
+
+        **var_index**: *int* \\
+        corresponds to the feature being requested -- consult info subsection for more
+
+        ## info
+        custom mapping between feature index and feature (short) name
+        necessary because i have been a nicompoop and i need some way to access post-calculation data by index (ie wind speed)
+        0. 'tp' -- total precipitation
+        1. 'd2m' -- 2m dewpoint
+        2. 't2m' -- 2m temperature
+        3. 'lai_hv' -- lai for high vegetation
+        4. 'lai_lv' -- lai for low vegetation
+        5. 'sp' -- surface pressure
+        
+        6. 'ws10' -- total windspeed (will be a combination of u10 and v10) // should be added in advance
+
+        - 7,8,9 -- 'mu_p_30/90/180' -- precipitation proxy vars
+        - 10,11,12 -- 'mu_t_30/90/180' -- temperature proxy vars
+        
+        will only store the 30 day totals, then can calculate the 30, 90, 180 day averages from those
+
+        13. 'skt' -- skin temperature -- having issues importing this so might ignore for now
+        '''
+
+        fixed_vars = ['tp', 'd2m', 't2m', 'lai_hv', 'lai_lv', 'sp', 'ws10']
+
+        n = len(fixed_vars) # future proofing in case if i do end up adding in skin temperature
+        if var_index < n:
+            var_name =  fixed_vars[var_index]
+            return sample[var_name]
+
+        ## proxy vars (further calculation needed)
+        elif n <= var_index < n + 3:
+            ## precipitation
+            m = var_index - n
+            var_name = 'tp'
+
+        elif n + 3 <= var_index < n + 6:
+            ## temperature
+            m = var_index - n - 3
+            var_name = 't2m'
+        else:
+            ## nb skin temp will raise an error for now
+            raise IndexError(f'Unknown feature number, {var_index = }')
+        
+        ref_var = f'tot_{var_name}' # 30 day total
+        match m:
+            case 0:
+                # 30 day average
+                return sample[ref_var] / 30
+            case 1:
+                # 90 day average
+                total = sample + sum([self._get_past_data(sample, i) for i in range(30, 90, 30)])
+                return total / 90
+            
+            case 2:
+                # 180 day average
+                total = sample + sum([self._get_past_data(sample, i) for i in range(30, 180, 30)])
+                return total / 180
+
+            case _:
+                ## tbh there is something seriously wrong if it gets to here
+                raise IndexError(f'Bad code -- end of MonthlyData._get_feature()') 
+            
+    def _get_past_data(self, sample, days):
+        '''
+        sample should have single data point (1 lat, long, time, step value)
+        '''
+
+        ## check correct form
+        dims = sample.sizes
+        ## want dims.values() to all be 1
+
+        lat = np.float64(sample['latitude'])
+        long = np.float64(sample['longitude'])
+        time = pd.to_datetime(sample['time']).to_pydatetime()
+        step = sample['step']
+
+        date = time - timedelta(days = days)
+
+        data = self._get_hourly_data(date)
+
+        return data.sel(
+            latitude = lat,
+            longitude = long,
+            step = step
+        )
+        
     def _get_single_item(self, index):
         
         time_space_split = divmod(index, self.grid_size)
