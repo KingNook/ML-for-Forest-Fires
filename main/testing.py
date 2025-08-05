@@ -28,4 +28,4 @@ for key in data.keys():
     data[key].to_zarr(f'./zarr_test/{key}_alaskaTEST')
 '''
 
-print(data_dir_to_zarr('./data/alaska_main', './data/_ZARR_FILES/alaska_full.zarr'))
+print(data_dir_to_zarr('./data/la_forest_main', './data/_ZARR_FILES/la_forest_full.zarr'))
