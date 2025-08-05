@@ -18,6 +18,7 @@ def read_grib_file(data_path):
     '''
     sub_function -- reads data_path/data.grib, returns grib file (opened)
     '''
+    print(f'reading: {data_path = }')
 
     try:
         if os.path.isdir(data_path):
@@ -86,3 +87,18 @@ def close_data_dir(data: dict[str, xr.Dataset]):
 
     for ds in data.values():
         ds.close()
+
+@track_runtime
+def data_dir_to_zarr(dd_path: str, zarr_path: str):
+
+    files = os.listdir(dd_path)
+    datasets = []
+
+    for dp in files:
+        fp = os.path.join(dd_path, dp)
+        datasets.append(read_grib_file(fp))
+
+    total_ds = xr.concat(datasets, dim='time', data_vars='all') ## xr.Dataset
+    
+    total_ds.to_zarr(zarr_path)
+    print(f'data saved to {zarr_path}')
