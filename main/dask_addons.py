@@ -1,4 +1,3 @@
-import time
 import xarray as xr
 import numpy as np
 import pandas as pd
@@ -41,16 +40,15 @@ class FlattenedDaskDataset:
         self.data = data
         self.prior_data = prior_data
 
-        self.start_date = pd.to_datetime(min(data.time.values)).to_pydatetime() + relativedelta(hour=23)
+        self.start_date = pd.to_datetime(min(data.time.values)).to_pydatetime() + timedelta(days = 1)
         self.end_date = pd.to_datetime(max(data.time.values)).to_pydatetime()
 
         ## grid values
         self.sizes = self.data.sizes
         self.grid_size = self.sizes['latitude'] * self.sizes['longitude']
 
-        example_pt = self._get_hourly_data(0)
-        self.longitude = example_pt.longitude.values
-        self.latitude = example_pt.latitude.values
+        self.longitude = self.data.copy().longitude.values
+        self.latitude = self.data.copy().latitude.values
 
         ## features 
         self.data_vars = list(self.data.variables)
@@ -86,7 +84,6 @@ class FlattenedDaskDataset:
 
         for var in self.proxy_vars:
             print(list(self.data.variables))
-            start_time = time.time()
             final_name = f'tot_{var}'
 
             print(f'[HourlyData] computing proxy: {var = }')
@@ -120,7 +117,7 @@ class FlattenedDaskDataset:
             n = 0
             for date in hourlydaterange(prior_start_date, end_date):
                 if n % 720 == 0:
-                    print(f'[compute rt | {time.time() - start_time:.02f}s elapsed] currently on {date.strftime(r'%Y-%m-%d %H:%M:%S')}')
+                    print(f'[compute rt] currently on {date.strftime(r'%Y-%m-%d %H:%M:%S')}')
                 n += 1
 
                 old_data = self._get_hourly_data(date - timedelta(days=30))[var].to_numpy().reshape(old_total.shape)
@@ -193,7 +190,7 @@ class FlattenedDaskDataset:
 
         elif type(key) == tuple:
             point_data = self._get_single_item(key[0])
-            raise NotImplementedError
+            return self._get_feature(point_data, key[1])
 
         elif type(key) == slice:
             raise NotImplementedError
@@ -319,22 +316,26 @@ class FlattenedDaskDataset:
         else:
             raise TypeError(f'Unsupported type, {type(index) = }')
 
-        time = np.datetime64(date.strftime(r'%Y-%m-%d'))
-
-        if date <= self.start_date:
-            data =  self.prior_data.sel(
-                time = time,
-                step = np.float64(date.hour + 1)
-            )
-
+        ## choose dataset
+        if date < self.start_date:
+            source = self.prior_data
         elif date < self.end_date:
-            data = self.data.sel(
-                time = time,
-                step = np.float64(date.hour + 1)
-            )
+            source = self.data
         else:
             raise KeyError(f'Cannot get data for {date = } (after {self.end_date = })')
+
+        # handle step=24.0 (ie 0:00)
+        h = date.hour
+        if h == 0:
+            step = np.float64(24)
+            time = (date + timedelta(days=-1)).strftime(r'%Y-%m-%d')
+        else:
+            step = np.float64(h + 1)
+            time = date.strftime(r'%Y-%m-%d')
         
+        data = source.sel(time=time, step=step)
+        
+        # handle overlapping entries (tends to happen at end of months)
         try:
             if len(data.coords['time']) == 2:
                 return data.isel(time=1)
