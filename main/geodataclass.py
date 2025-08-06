@@ -434,6 +434,7 @@ class FlattenedData(HourlyData):
         ## inputs
         - `sample` -- DataSet with single time, step, latitude, longitude coordinate;
             - must contain variables listed in info section below
+        - `var_index` -- number corresponding to relevant variable
 
         ## info
         custom mapping between feature index and feature (short) name
