@@ -37,7 +37,7 @@ class FlattenedTruthTable:
 
         self.data['latitude'] = data['latitude'].round(1)
         self.data['longitude'] = data['longitude'].round(1)
-        self.data['acq_time'] = np.ceil(data['acq_time']/100).astype(np.float64)
+        self.data['acq_time'] = np.floor(data['acq_time']/100).astype(np.float64)
 
         if type(start_date) == str:
             self.start_date = datetime.strptime(start_date, r'%Y-%m-%d')
