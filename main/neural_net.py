@@ -58,7 +58,7 @@ class geoDataset(Dataset):
 
         self.batch_prep = batch_prep
 
-        self.feature_num = feature_num if feature_num > 0 else input_data.feature_num
+        self.feature_num = feature_num if feature_num > 0 else input_data.total_features
 
         ## validation eg have the same number of datapoints
 
