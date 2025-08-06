@@ -55,6 +55,9 @@ class geoDataset(Dataset):
 
         self.feature_num = feature_num if feature_num > 0 else input_data.total_features
 
+        grid_shape = input_data.sizes['longitude']
+        self.batches_per_row = grid_shape[0] // 64 if grid_shape[0] >= 64 else 1
+
         ## validation eg have the same number of datapoints
 
 
