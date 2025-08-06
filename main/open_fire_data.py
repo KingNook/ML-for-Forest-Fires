@@ -4,40 +4,6 @@ import numpy as np
 
 from datetime import datetime, timedelta
 
-if __name__ == '__main__':
-    fire_data = pd.read_csv(
-        './data/FIRE/alaska_range_csv/data.csv',
-        parse_dates = ['acq_date']
-    )
-
-    veg_files = fire_data[
-        (fire_data['type'] == 0) & (fire_data['confidence'] >= 60)
-    ]
-
-    important_vars = [
-        'latitude',
-        'longitude',
-        'acq_date',
-        'acq_time'
-    ]
-
-    var_series = [
-        veg_files[var] for var in important_vars
-    ]
-
-    var_series[0] = var_series[0].round(1)
-    var_series[1] = var_series[1].round(1)
-    var_series[2] = var_series[2]
-    var_series[3] = (var_series[3]/100).apply(np.ceil).astype(np.float64)
-
-    fire_ds = pd.concat(
-        objs = var_series,
-        axis = 1,
-        names = important_vars
-    )
-
-    print(fire_ds)
-
 class FlattenedTruthTable:
     '''
     holds a dataframe and a coord range -- translates index into long/lat/time coords, then checks against table to see if there is an entry
