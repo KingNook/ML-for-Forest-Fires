@@ -2,11 +2,22 @@ from geodataclass import FlattenedData
 
 from open_data import open_data_dir, data_dir_to_zarr
 
-import warnings
-import traceback
-import sys
-
+## imports
+#  modules
 import numpy as np
+import pandas as pd
+import xarray as xr
+import warnings
+import torch
+import os
+
+# custom code
+import dask_addons
+from open_data import open_data_dir, data_dir_to_zarr
+from neural_net import DNN, geoDataset
+from open_fire_data import FlattenedTruthTable
+
+warnings.filterwarnings('ignore')
 
 def clean_nan(dds):
     for k, v in dds.items():
@@ -14,20 +25,15 @@ def clean_nan(dds):
 
     return dds
 
-def custom_warning(message, category, filename, lineno, file=None, line=None):
-    '''log = file if hasattr(file,'write') else sys.stderr
-    traceback.print_stack(file=log)
-    log.write(warnings.formatwarning(message, category, filename, lineno, line))'''
-    pass
+DATA_DIR_PATH = './data/_ZARR_FILES'
 
-warnings.showwarning = custom_warning
-'''
-data = clean_nan(open_data_dir('./data/alaska_TEST_DATA'))
+data_path = os.path.join(DATA_DIR_PATH, 'alaska_full.zarr')
+prior_data_path = os.path.join(DATA_DIR_PATH, 'alaska_prior.zarr')
 
-for key in data.keys():
-    data[key].to_zarr(f'./zarr_test/{key}_alaskaTEST')
-'''
+data = xr.open_zarr(data_path, decode_timedelta=False)
+prior_data = xr.open_zarr(prior_data_path, decode_timedelta=False)
 
-# print(data_dir_to_zarr('./data/la_forest_main', './data/_ZARR_FILES/la_forest_full.zarr'))
+ds = dask_addons.FlattenedDaskDataset(data, prior_data)
+ds.setup()
 
-data = open_data_dir('./')
+print(ds[0, 8])
