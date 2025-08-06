@@ -31,9 +31,14 @@ data_path = os.path.join(DATA_DIR_PATH, 'alaska_full.zarr')
 prior_data_path = os.path.join(DATA_DIR_PATH, 'alaska_prior.zarr')
 
 data = xr.open_zarr(data_path, decode_timedelta=False)
-prior_data = xr.open_zarr(prior_data_path, decode_timedelta=False)
+# prior_data = xr.open_zarr(prior_data_path, decode_timedelta=False)
 
-ds = dask_addons.FlattenedDaskDataset(data, prior_data)
-ds.setup()
+fire_data = FlattenedTruthTable(pd.read_csv('./data/_FIRE/alaska_range_csv/data.csv'))
 
-print(ds[0, 8])
+print(fire_data.data)
+for i in range(10000):
+    if fire_data[i] == 1:
+        print(f'yayay {i = }')
+    
+    if i%100 == 0:
+        print(f'{i = }')
