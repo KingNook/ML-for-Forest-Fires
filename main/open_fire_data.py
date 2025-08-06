@@ -32,6 +32,9 @@ class FlattenedTruthTable:
         self.data = data
         self.grid_shape = data.shape
 
+        self.lat_vals = lat_vals
+        self.long_vals = long_vals
+
         self.data['latitude'] = data['latitude'].round(1)
         self.data['longitude'] = data['longitude'].round(1)
         self.data['acq_time'] = np.ceil(data['acq_time']/100).astype(np.float64)
@@ -44,7 +47,7 @@ class FlattenedTruthTable:
 
     def check_match(self, long, lat, time, date):
         fire_series = self.data[
-            (self.data['longitude']==long) & (self.data['latitude']==lat) & (self.data['acq_time']==time) & (self.data['acq_date']==date)
+            (self.data['longitude']==long) & (self.data['latitude']==lat) & (self.data['acq_time']==time) & (self.data['acq_date']==date) & (self.data['type'] == 0)
         ]
 
         if fire_series.empty:
@@ -64,4 +67,6 @@ class FlattenedTruthTable:
         date = self.start_date + timedelta(days)
 
         ## return 1 if yes fire and 0 if not
-        return self.check_match(long, lat, hour, date)
+        match = self.check_match(self.long_vals[long], self.lat_vals[lat], hour, date)
+
+        return match
