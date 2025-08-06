@@ -1,8 +1,6 @@
 import torch
 import numpy as np
 import pandas as pd
-import os
-import json
 
 from torch import nn
 from torch.utils.data import DataLoader, Dataset
@@ -84,43 +82,11 @@ class geoDataset(Dataset):
 
 class BatchDataLoader:
     
-    def __init__(self, data_dir_path):
-
-        self.path = data_dir_path
-
-    def load_batches(self):
-        '''
-        returns iterator which gives one batch each time
-        '''
-
-        data_files = os.listdir(self.path)
-
-        ## check only files of correct form
-        if 'settings.json' in data_files:
-            ## read settings
-            with open('settings.json', 'r') as settings_file:
-                settings = json.load(settings_file)
-
-        else:
-            ## default settings
-            settings = {
-                'batch_size': 64,
-                'batch_num': 1,
-                'num_files': 1,
-                'dataset_name': None
-            }
-
-        for file_num in range(settings['num_files']):
-            file_name = f'{settings['dataset_name']}-batch_{file_num}.json' if settings['dataset_name'] else f'batch_{file_num}.json'
-            file_path = os.path.join(self.path, file_name)
-            with open(file_path, 'r') as batch_file:
-                for line in batch_file:
-                    ## should read line by line
-                    batch = json.loads(line) # loads as list of (feature, label) pairs
-                    yield batch
+    def __init__(self):
+        pass
 
     def __iter__(self):
-        return self.load_batches()
+        pass
     
 
 def train(model, dataloader, loss_fn, optimizer):
