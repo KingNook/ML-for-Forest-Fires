@@ -9,7 +9,26 @@ class FlattenedTruthTable:
     holds a dataframe and a coord range -- translates index into long/lat/time coords, then checks against table to see if there is an entry
     '''
 
-    def __init__(self, data, start_date = '2010-01-01'):
+    def __init__(self, data: pd.DataFrame, lat_vals: list[np.float64], long_vals: list[np.float64], start_date: str | datetime = '2010-01-01'):
+        '''
+        provides reformatting and easy indexing to pandas dataframe
+        ## Parameters
+        **data**: *pandas.DataFrame* \\
+        from `pd.read_csv()`, contains data for all detected fires; expected to have columns for:
+        - latitude
+        - longitude
+        - acq_date
+        - acq_time
+        - confidence
+        - type
+
+        **long_vals**, **lat_vals**: *array-like* \\
+        longitude and latitude values -- should be the same as those for the input dataset; can rip them
+        using `ds.latitude/longitude.values` where `ds` is a `FlattenedDaskDataset` instance
+
+        **start_date**: *str* or *datetime* \\
+        the 0th item will be at 0:00 on `start_date`; can rip this using `ds.start_date`
+        '''
         self.data = data
         self.grid_shape = data.shape
 
