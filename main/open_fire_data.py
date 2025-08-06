@@ -4,52 +4,40 @@ import numpy as np
 
 from datetime import datetime, timedelta
 
-if __name__ == '__main__':
-    fire_data = pd.read_csv(
-        './data/FIRE/alaska_range_csv/data.csv',
-        parse_dates = ['acq_date']
-    )
-
-    veg_files = fire_data[
-        (fire_data['type'] == 0) & (fire_data['confidence'] >= 60)
-    ]
-
-    important_vars = [
-        'latitude',
-        'longitude',
-        'acq_date',
-        'acq_time'
-    ]
-
-    var_series = [
-        veg_files[var] for var in important_vars
-    ]
-
-    var_series[0] = var_series[0].round(1)
-    var_series[1] = var_series[1].round(1)
-    var_series[2] = var_series[2]
-    var_series[3] = (var_series[3]/100).apply(np.ceil).astype(np.float64)
-
-    fire_ds = pd.concat(
-        objs = var_series,
-        axis = 1,
-        names = important_vars
-    )
-
-    print(fire_ds)
-
 class FlattenedTruthTable:
     '''
     holds a dataframe and a coord range -- translates index into long/lat/time coords, then checks against table to see if there is an entry
     '''
 
-    def __init__(self, data, start_date = '2010-01-01'):
+    def __init__(self, data: pd.DataFrame, lat_vals: list[np.float64], long_vals: list[np.float64], start_date: str | datetime = '2010-01-01'):
+        '''
+        provides reformatting and easy indexing to pandas dataframe
+        ## Parameters
+        **data**: *pandas.DataFrame* \\
+        from `pd.read_csv()`, contains data for all detected fires; expected to have columns for:
+        - latitude
+        - longitude
+        - acq_date
+        - acq_time
+        - confidence
+        - type
+
+        **long_vals**, **lat_vals**: *array-like* \\
+        longitude and latitude values -- should be the same as those for the input dataset; can rip them
+        using `ds.latitude/longitude.values` where `ds` is a `FlattenedDaskDataset` instance
+
+        **start_date**: *str* or *datetime* \\
+        the 0th item will be at 0:00 on `start_date`; can rip this using `ds.start_date`
+        '''
         self.data = data
         self.grid_shape = data.shape
 
+        self.lat_vals = lat_vals
+        self.long_vals = long_vals
+
         self.data['latitude'] = data['latitude'].round(1)
         self.data['longitude'] = data['longitude'].round(1)
-        self.data['acq_time'] = np.ceil(data['acq_time']/100).astype(np.float64)
+        self.data['acq_time'] = np.floor(data['acq_time']/100).astype(np.float64)
 
         if type(start_date) == str:
             self.start_date = datetime.strptime(start_date, r'%Y-%m-%d')
@@ -59,7 +47,7 @@ class FlattenedTruthTable:
 
     def check_match(self, long, lat, time, date):
         fire_series = self.data[
-            (self.data['longitude']==long) & (self.data['latitude']==lat) & (self.data['acq_time']==time) & (self.data['acq_date']==date)
+            (self.data['longitude']==long) & (self.data['latitude']==lat) & (self.data['acq_time']==time) & (self.data['acq_date']==date) & (self.data['type'] == 0)
         ]
 
         if fire_series.empty:
@@ -79,4 +67,6 @@ class FlattenedTruthTable:
         date = self.start_date + timedelta(days)
 
         ## return 1 if yes fire and 0 if not
-        return self.check_match(long, lat, hour, date)
+        match = self.check_match(self.long_vals[long], self.lat_vals[lat], hour, date)
+
+        return match

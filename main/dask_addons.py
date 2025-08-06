@@ -121,6 +121,13 @@ class FlattenedDaskDataset:
 
     ## HIDDEN METHODS ##
 
+    ### len ###
+    def __len__(self):
+        hours = (self.end_date - self.start_date).days * 24
+        return hours * self.grid_size
+
+
+    ### get item / indexing ###
     def __getitem__(self, key):
         '''
         acceptable types of indexing:
