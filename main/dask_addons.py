@@ -37,8 +37,12 @@ class FlattenedDaskDataset:
         data for at least 180 days before the start of the period of study
         '''
 
-        self.data = data
-        self.prior_data = prior_data
+        self.data = self.clean_na(data)
+        self.prior_data = self.clean_na(prior_data)
+
+        ## check we have no repeated days
+        assert pd.infer_freq(self.data.time) != None
+        assert pd.infer_freq(self.prior_data.time) != None
 
         self.start_date = pd.to_datetime(min(data.time.values)).to_pydatetime() + timedelta(days = 1)
         self.end_date = pd.to_datetime(max(data.time.values)).to_pydatetime()
@@ -56,6 +60,9 @@ class FlattenedDaskDataset:
         self.proxy_num = len(self.proxy_vars) * len(self.proxy_timeframes)
         self.total_features = self.input_feature_num + self.proxy_num
 
+        ## setup
+        # self.setup()
+
     def setup(self):
         '''
         compute proxies and wind speed, then drop u10 and v10, then RETURNS the final dataset
@@ -67,102 +74,39 @@ class FlattenedDaskDataset:
 
         self.compute_running_totals()
         self.compute_resultant_speed()
+        
+        self.data = self.data.drop_vars(('u10', 'v10'))
+        self.prior_data = self.prior_data.drop_vars(self.proxy_vars)
 
-        return (self.data.drop_vars(('u10', 'v10')), self.prior_data.drop_vars(self.proxy_vars))
+    def clean_na(self, ds: xr.Dataset):
+        
+        ds_stacked = ds.stack(dt = ('time', 'step'))
+        ds_clean = ds_stacked.dropna(dim = 'dt', how='all')
+        return ds_clean.unstack(dim = 'dt')
 
     @track_runtime
     def compute_running_totals(self):
-        date_format = r'%Y-%m-%d'
-
-        warmup_start_date = self.start_date - timedelta(days = 180)
-        prior_start_date = warmup_start_date + timedelta(days = 30)
-        end_date = self.end_date
-        prior_period = 24*150
-
-        main_ds = []
-        prior_ds = []
-
+        
         for var in self.proxy_vars:
-            print(list(self.data.variables))
             final_name = f'tot_{var}'
 
-            print(f'[HourlyData] computing proxy: {var = }')
+            da_main = self.data[var]
+            da_prior = self.prior_data[var]
 
-            rolling_total = []
+            da = xr.concat((da_prior, da_main), dim = 'time')
 
-            initial_da = self._get_hourly_data(warmup_start_date)[var]
+            times = da.time.values.astype("datetime64[h]")
+            steps = da.step.values.astype("timedelta64[h]")
+            valid_time = times[:, None] + steps[None, :]
+            da2 = da.assign_coords(valid_time=(("time", "step"), valid_time)).chunk({"time": 100, "step": -1})
+            da_stack = da2.stack(vt=("time", "step"))
+            da_roll = da_stack.rolling(vt=720, min_periods=1, center=False).mean().drop_duplicates(dim='vt')
+            final_da = da_roll.drop_vars("valid_time").unstack("vt")
 
-            for date in hourlydaterange(warmup_start_date, prior_start_date):                
-                new_data = self._get_hourly_data(date)[var] ## add something to point out potentially problematic datapoints (ie if the whole thing is NaN)
-                initial_da = initial_da + new_data.reset_coords('time', drop=True) 
+            self.data[final_name] = final_da.sel(time = slice(self.start_date + timedelta(days=-1), None))
+            self.prior_data[final_name] = final_da.sel(time = slice(None, self.start_date))
 
-            rt_np = initial_da.to_numpy().reshape((1, 1, self.sizes['latitude'], self.sizes['longitude']))
 
-            da = xr.DataArray(
-                    data = rt_np,
-                    dims = ['time', 'step', 'latitude', 'longitude'],
-                    coords = {
-                        'latitude': self.latitude,
-                        'longitude': self.longitude,
-                        'time': [np.datetime64(prior_start_date.strftime(date_format))],
-                        'step': [np.float64(prior_start_date.hour+1)]
-                    },
-                    name = final_name
-                )
-            
-            rolling_total.append(da.stack(dt = ['time', 'step']))
-            
-            old_total = rt_np
-
-            n = 0
-            for date in hourlydaterange(prior_start_date, end_date):
-                if n % 720 == 0:
-                    print(f'[compute rt] currently on {date.strftime(r'%Y-%m-%d %H:%M:%S')}')
-                n += 1
-
-                old_data = self._get_hourly_data(date - timedelta(days=30))[var].to_numpy().reshape(old_total.shape)
-                new_data = self._get_hourly_data(date)[var].to_numpy().reshape(old_total.shape)
-
-                new_total_np = old_total - old_data + new_data
-                old_total = new_total_np
-
-                new_total = xr.DataArray(
-                    data = new_total_np,
-                    dims = ['time', 'step', 'latitude', 'longitude'],
-                    coords = {
-                        'latitude': self.latitude,
-                        'longitude': self.longitude,
-                        'time': [np.datetime64(date.strftime(date_format))],
-                        'step': [np.float64(date.hour+1)]
-                    },
-                    name = final_name
-                )
-
-                rolling_total.append(new_total.stack(dt = ['time', 'step']))
-
-            print('totals calculated')
-
-            prior_totals = xr.concat(
-                objs = rolling_total[:prior_period],
-                dim = 'dt'
-            )
-            prior_totals = prior_totals.unstack('dt')
-    
-            prior_ds.append(prior_totals)
-
-            totals = xr.concat(
-                objs = rolling_total[prior_period:],
-                dim = 'dt'
-            )
-            totals = totals.unstack('dt')
-            main_ds.append(totals)
-
-        # use this if above fails
-        for ds in prior_ds:
-            self.prior_data.merge(ds)
-
-        for ds in main_ds:
-            self.data.merge(ds)
 
     def compute_resultant_speed(self):
         '''
@@ -189,8 +133,10 @@ class FlattenedDaskDataset:
             return self._get_single_item(key)
 
         elif type(key) == tuple:
-            point_data = self._get_single_item(key[0])
-            return self._get_feature(point_data, key[1])
+            assert len(key) == 2
+            index, feature_num = key
+            point_data = self._get_single_item(index)
+            return self._get_feature(point_data, feature_num)
 
         elif type(key) == slice:
             raise NotImplementedError
@@ -220,8 +166,8 @@ class FlattenedDaskDataset:
         
         6. 'ws10' -- total windspeed (will be a combination of u10 and v10) // should be added in advance
 
-        - 7,8,9 -- 'mu_p_30/90/180' -- precipitation proxy vars
-        - 10,11,12 -- 'mu_t_30/90/180' -- temperature proxy vars
+        - 7,8,9 -- 'mu_tp_30/90/180' -- precipitation proxy vars
+        - 10,11,12 -- 'mu_t2m_30/90/180' -- temperature proxy vars
         
         will only store the 30 day totals, then can calculate the 30, 90, 180 day averages from those
 
@@ -256,12 +202,12 @@ class FlattenedDaskDataset:
                 return sample[ref_var] / 30
             case 1:
                 # 90 day average
-                total = sample + sum([self._get_past_data(sample, i) for i in range(30, 90, 30)])
+                total = sample[ref_var] + sum([self._get_past_data(sample, i)[ref_var] for i in range(30, 90, 30)])
                 return total / 90
             
             case 2:
                 # 180 day average
-                total = sample + sum([self._get_past_data(sample, i) for i in range(30, 180, 30)])
+                total = sample[ref_var] + sum([self._get_past_data(sample, i)[ref_var] for i in range(30, 180, 30)])
                 return total / 180
 
             case _:
@@ -279,8 +225,8 @@ class FlattenedDaskDataset:
 
         lat = np.float64(sample['latitude'])
         long = np.float64(sample['longitude'])
-        time = pd.to_datetime(sample['time']).to_pydatetime()
-        step = sample['step']
+        time = pd.to_datetime(sample['time'].values).to_pydatetime()
+        step = np.float64(sample['step'].values)
 
         date = time - timedelta(days = days)
 
@@ -288,8 +234,7 @@ class FlattenedDaskDataset:
 
         return data.sel(
             latitude = lat,
-            longitude = long,
-            step = step
+            longitude = long
         )
         
     def _get_single_item(self, index):
@@ -316,14 +261,6 @@ class FlattenedDaskDataset:
         else:
             raise TypeError(f'Unsupported type, {type(index) = }')
 
-        ## choose dataset
-        if date < self.start_date:
-            source = self.prior_data
-        elif date < self.end_date:
-            source = self.data
-        else:
-            raise KeyError(f'Cannot get data for {date = } (after {self.end_date = })')
-
         # handle step=24.0 (ie 0:00)
         h = date.hour
         if h == 0:
@@ -332,17 +269,15 @@ class FlattenedDaskDataset:
         else:
             step = np.float64(h + 1)
             time = date.strftime(r'%Y-%m-%d')
+
+        ## choose dataset
+        if date < self.start_date:
+            source = self.prior_data
+        elif date < self.end_date:
+            source = self.data
+        else:
+            raise KeyError(f'Cannot get data for {date = } (after {self.end_date = })')
         
         data = source.sel(time=time, step=step)
-        
-        # handle overlapping entries (tends to happen at end of months)
-        try:
-            if len(data.coords['time']) == 2:
-                return data.isel(time=1)
-            else:
-                raise ValueError(f'wacky time values: {data.coords['time']}')
-            
-        except:
-            ## only 1 time value
-            return data
+        return data
             
