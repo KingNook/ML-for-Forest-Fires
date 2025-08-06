@@ -1,5 +1,3 @@
-from geodataclass import FlattenedData
-
 from open_data import open_data_dir, data_dir_to_zarr
 
 ## imports

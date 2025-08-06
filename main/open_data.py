@@ -9,7 +9,6 @@ import cfgrib
 import os
 import xarray as xr
 
-from geodataclass import *
 from request_climate_data import track_runtime
 from unzippify import temp_cwd
 

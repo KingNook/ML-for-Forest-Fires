@@ -1,6 +1,5 @@
 import xarray as xr
 from open_data import open_data_dir, data_dir_to_zarr
-from geodataclass import HourlyData, FlattenedData
 from compute_wind_speed import append_wind_speed
 from dask_addons import FlattenedDaskDataset
 
