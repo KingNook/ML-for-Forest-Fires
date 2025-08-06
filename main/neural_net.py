@@ -45,8 +45,7 @@ class geoDataset(Dataset):
     def __init__(
             self, 
             input_data: FlattenedDaskDataset, 
-            fire_data: FlattenedTruthTable, 
-            batch_prep: bool = False, 
+            fire_data: FlattenedTruthTable,
             feature_num: int = -1):
         '''
         input data is climate variables \\
@@ -55,8 +54,6 @@ class geoDataset(Dataset):
 
         self.input_data = input_data
         self.fire_data = fire_data
-
-        self.batch_prep = batch_prep
 
         self.feature_num = feature_num if feature_num > 0 else input_data.total_features
 
