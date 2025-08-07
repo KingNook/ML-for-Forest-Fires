@@ -47,6 +47,7 @@ class geoDataset(Dataset):
             input_data: FlattenedDaskDataset, 
             fire_data: FlattenedTruthTable,
             feature_num: int = -1,
+            approx_batch_size: int = 64,
             return_batches: bool = True):
         '''
         input data is climate variables \\
@@ -65,7 +66,7 @@ class geoDataset(Dataset):
         self.feature_num = feature_num if feature_num > 0 else input_data.total_features
 
         self.cols = input_data.sizes['longitude']
-        self.batches_per_row = round(self.cols[0] / 64) if self.cols[0] > 64 else 1
+        self.batches_per_row = round(self.cols[0] / approx_batch_size) if self.cols[0] > 64 else 1
         self.rows = input_data.sizes['latitude']
 
         self.lat_vals = self.input_data.latitude
