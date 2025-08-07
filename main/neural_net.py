@@ -130,9 +130,57 @@ class BatchDataLoader:
     def __init__(self, dataset: geoDataset):
         self.ds = dataset
 
-    def __iter__(self):
+        self.batch_longs = dataset.batch_long ## longitude values of each batch
+        self.start_date = dataset.start_date
+
+        self.lat_vals = dataset.lat_vals
+        self.long_vals = dataset.long_vals
+
+        self.max_lat_idx = self.ds.rows
+        self.max_long_idx = self.ds.batches_per_row
+
+        self.reset_idx()
+        
+
+    def reset_idx(self):
+        self.idx = 0
+
+        self.lat_idx = 0
+        self.long_idx = 0
+
+        self.refresh_data = True
+
+
         pass
-    
+
+    def __iter__(self):
+        return self
+
+    def __next__(self):
+        if self.refresh_data:
+            try:
+                grid_data = self.ds[self.idx]
+                self.refresh_data = False
+            except IndexError:
+                self.reset_idx()
+                raise StopIteration
+        
+        batch = self.extract_data(grid_data, self.lat_idx, self.long_idx)
+
+        self.long_idx += 1
+        if self.long_idx == self.max_long_idx:
+            self.long_idx = 0
+            self.lat_idx += 1
+
+            if self.lat_idx == self.max_lat_idx:
+                self.lat_idx = 0
+                self.idx += 1
+                self.refresh_data = True
+
+        yield batch
+
+
+
 
 def train(model, dataloader, loss_fn, optimizer):
 
