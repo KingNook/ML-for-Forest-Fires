@@ -66,7 +66,7 @@ class geoDataset(Dataset):
         self.feature_num = feature_num if feature_num > 0 else input_data.total_features
 
         self.cols = input_data.sizes['longitude']
-        self.batches_per_row = round(self.cols[0] / approx_batch_size) if self.cols[0] > 64 else 1
+        self.batches_per_row = round(self.cols / approx_batch_size) if self.cols > 64 else 1
         self.rows = input_data.sizes['latitude']
 
         self.lat_vals = self.input_data.latitude
@@ -227,11 +227,12 @@ class BatchDataLoader:
 
         yield batch
 
+    def __len__(self):
+        return len(self.ds)
 
 
-
-def train(model, dataloader, loss_fn, optimizer, device):
-    size = len(dataloader.dataset)
+def train(dataloader, model, loss_fn, optimizer, device):
+    size = len(dataloader.ds)
     model.train()
 
     for batch, (X, y) in enumerate(dataloader):
@@ -248,8 +249,8 @@ def train(model, dataloader, loss_fn, optimizer, device):
             loss, current = loss.item(), (batch + 1) * len(X)
             print(f"loss: {loss:>7f}  [{current:>5d}/{size:>5d}]")
 
-def test(model, dataloader, loss_fn, device):
-    size = len(dataloader.dataset)
+def test(dataloader, model, loss_fn, device):
+    size = len(dataloader.ds)
     num_batches = len(dataloader)
     model.eval()
     test_loss, correct = 0, 0
