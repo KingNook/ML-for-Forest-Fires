@@ -44,6 +44,14 @@ class FlattenedTruthTable:
         elif type(start_date) == datetime:
             self.start_date = start_date
 
+    def get_hourly_data(self, days, hours):
+        date = (self.start_date + timedelta(days=days)).strftime(r'%Y-%m-%d')
+        hours = float(hours)
+
+        data = self.data.query('acq_date = @date and acq_time = @hours')
+
+        return data
+
 
     def check_match(self, long, lat, time, date):
         fire_series = self.data[
