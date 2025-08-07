@@ -57,26 +57,39 @@ class geoDataset(Dataset):
         self.fire_data = fire_data
 
         self.start_date = input_data.start_date
+        self.end_date = input_data.end_date
         assert pd.to_datetime(self.start_date) == pd.to_datetime(fire_data.start_date)
 
         self.return_batches = return_batches
 
         self.feature_num = feature_num if feature_num > 0 else input_data.total_features
 
-        grid_shape = input_data.sizes['longitude']
-        self.batches_per_row = grid_shape[0] // 64 if grid_shape[0] >= 64 else 1
+        self.cols = input_data.sizes['longitude']
+        self.batches_per_row = round(self.cols[0] / 64) if self.cols[0] > 64 else 1
         self.rows = input_data.sizes['latitude']
+
+        self.lat_vals = self.input_data.latitude
+        self.long_vals = self.input_data.longitude
 
         ## validation eg have the same number of datapoints
 
+        ## define batches
+        self.calc_batches()
+
+    def calc_batches(self):
+        '''
+        ONE-OFF TO BE CALLED ON __INIT__ \\
+        calculates the coords of each batch
+        '''
+
+        batch_size, _ = divmod(self.cols, self.batches_per_row)
+        self.batch_long = [self.long_vals[i*batch_size:(i+1)*batch_size] for i in range(self.batches_per_row-1)]
+        self.batch_long.append([self.long_vals[(self.batches_per_row-1)*batch_size:]])
 
     def __len__(self):
-        return len(self.input_data)
+        return (self.end_date - self.start_date).days * 24 * self.batches_per_row * self.rows
     
     def da_from_df(self, df: pd.DataFrame):
-
-        lat_vals = self.input_data.latitude
-        long_vals = self.input_data.longitude
 
         df = df[['latitude', 'longitude']].drop_duplicates()
         df['presence'] = 1
@@ -84,8 +97,8 @@ class geoDataset(Dataset):
         da = df.set_index(['latitude', 'longitude'])['presence'].to_xarray()
 
         da = da.reindex({
-            'latitude': lat_vals,
-            'longitude': long_vals
+            'latitude': self.lat_vals,
+            'longitude': self.long_vals
         }, fill_value=0).fillna(0)
 
         return da
@@ -151,6 +164,7 @@ class BatchDataLoader:
         self.refresh_data = True
 
 
+    def extract_data(self, data, lat_idx, long_idx):
         pass
 
     def __iter__(self):
