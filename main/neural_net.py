@@ -85,7 +85,7 @@ class geoDataset(Dataset):
 
         batch_size, _ = divmod(self.cols, self.batches_per_row)
         self.batch_long = [self.long_vals[i*batch_size:(i+1)*batch_size] for i in range(self.batches_per_row-1)]
-        self.batch_long.append([self.long_vals[(self.batches_per_row-1)*batch_size:]])
+        self.batch_long.append(self.long_vals[(self.batches_per_row-1)*batch_size:])
 
     def __len__(self):
         return (self.end_date - self.start_date).days * 24 * self.batches_per_row * self.rows
@@ -141,11 +141,10 @@ class geoDataset(Dataset):
 
 class BatchDataLoader:
     
-    def __init__(self, dataset: geoDataset):
+    def __init__(self, dataset: geoDataset, end: int = -1):
         self.ds = dataset
 
-        self.batch_longs = dataset.batch_long ## longitude values of each batch
-        self.start_date = dataset.start_date
+        self.end = end
 
         self.lat_vals = dataset.lat_vals
         self.long_vals = dataset.batch_long
@@ -155,11 +154,15 @@ class BatchDataLoader:
 
         assert self.max_long_idx == len(self.long_vals)
 
-        self.feature_vars = []
-        self.label_vars = []
+        self.feature_vars = [
+            'tp', 'd2m', 't2m', 'lai_hv', 'lai_lv', 'sp', 'ws10', 
+            'mu_tp_30', 'mu_tp_90', 'mu_tp_180', 
+            'mu_t2m_30', 'mu_t2m_90', 'mu_t2m_180']
+        self.label_vars = ['fire']
 
         self.reset_idx()
         
+        self.refresh_data = True
 
     def reset_idx(self):
         self.idx = 0
@@ -188,17 +191,17 @@ class BatchDataLoader:
         A tuple containing `X`, the input features, and `Y`, the observed data (ie 1 for fire, 0 for not)
         '''
 
-        values = data.sel(
-            latitude = self.lat_vals[lat_idx],
-            longitude = self.long_vals[long_idx]
-        )
+        long = self.long_vals[long_idx]
+        lat = self.lat_vals[lat_idx]
+
+        values = data.sel(latitude=lat).sel(longitude=long, method='nearest')
 
         features = [values[var].values for var in self.feature_vars] ## rows are features, columns are samples
-        features = np.ndarray(features).transpose() ## rows are samples, columns are features
+        features = np.array(features).transpose() ## rows are samples, columns are features
 
-        labels = np.ndarray([values[var].values for var in self.label_vars]).transpose()
+        labels = np.array([values[var].values for var in self.label_vars], dtype=float).transpose()
 
-        return torch.tensor(features), torch.tensor(labels)
+        return (torch.tensor(features), torch.tensor(labels))
 
 
     def __iter__(self):
@@ -206,14 +209,19 @@ class BatchDataLoader:
 
     def __next__(self):
         if self.refresh_data:
+            ## EARLY END
+            if self.idx == self.end:
+                self.reset_idx()
+                raise StopIteration
+            
             try:
-                grid_data = self.ds[self.idx]
+                self.grid_data = self.ds[self.idx]
                 self.refresh_data = False
             except IndexError:
                 self.reset_idx()
                 raise StopIteration
         
-        batch = self.extract_data(grid_data, self.lat_idx, self.long_idx)
+        batch = self.extract_data(self.grid_data, self.lat_idx, self.long_idx)
 
         self.long_idx += 1
         if self.long_idx == self.max_long_idx:
@@ -225,14 +233,14 @@ class BatchDataLoader:
                 self.idx += 1
                 self.refresh_data = True
 
-        yield batch
+        return batch
 
     def __len__(self):
-        return len(self.ds)
+        return len(self.lat_vals) * len(self.long_vals) * (self.ds.end_date - self.ds.start_date).days * 24
 
 
 def train(dataloader, model, loss_fn, optimizer, device):
-    size = len(dataloader.ds)
+    size = len(dataloader)
     model.train()
 
     for batch, (X, y) in enumerate(dataloader):
@@ -245,7 +253,7 @@ def train(dataloader, model, loss_fn, optimizer, device):
         optimizer.step()
         optimizer.zero_grad()
 
-        if batch % 100 == 0:
+        if batch % 10 == 0:
             loss, current = loss.item(), (batch + 1) * len(X)
             print(f"loss: {loss:>7f}  [{current:>5d}/{size:>5d}]")
 
