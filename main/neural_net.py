@@ -147,10 +147,15 @@ class BatchDataLoader:
         self.start_date = dataset.start_date
 
         self.lat_vals = dataset.lat_vals
-        self.long_vals = dataset.long_vals
+        self.long_vals = dataset.batch_long
 
         self.max_lat_idx = self.ds.rows
         self.max_long_idx = self.ds.batches_per_row
+
+        assert self.max_long_idx == len(self.long_vals)
+
+        self.feature_vars = []
+        self.label_vars = []
 
         self.reset_idx()
         
@@ -164,8 +169,36 @@ class BatchDataLoader:
         self.refresh_data = True
 
 
-    def extract_data(self, data, lat_idx, long_idx):
-        pass
+    def extract_data(self, data: xr.Dataset, lat_idx: int, long_idx: int) -> tuple[torch.Tensor, torch.Tensor]:
+        '''
+        grabs the batch according to given indices
+        ## Parameters
+        **data**: *xarray.Dataset* \\
+        Data for the whole grid for a single time, step
+
+        **lat_idx**: *int* \\
+        Ranges from `0` to `self.max_lat_idx`; self-explanatory
+
+        **long_idx**: *int* \\
+        Specifies which set of longitude values should be used for the batch
+
+        ## Returns
+        **batch**: *tuple*, (X, Y) \\
+        A tuple containing `X`, the input features, and `Y`, the observed data (ie 1 for fire, 0 for not)
+        '''
+
+        values = data.sel(
+            latitude = self.lat_vals[lat_idx],
+            longitude = self.long_vals[long_idx]
+        )
+
+        features = [values[var].values for var in self.feature_vars] ## rows are features, columns are samples
+        features = np.ndarray(features).transpose() ## rows are samples, columns are features
+
+        labels = np.ndarray([values[var].values for var in self.label_vars]).transpose()
+
+        return torch.tensor(features), torch.tensor(labels)
+
 
     def __iter__(self):
         return self
