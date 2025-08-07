@@ -1,6 +1,8 @@
 import torch
 import numpy as np
+import xarray as xr
 import pandas as pd
+from datetime import datetime, timedelta
 
 from torch import nn
 from torch.utils.data import DataLoader, Dataset
@@ -44,7 +46,8 @@ class geoDataset(Dataset):
             self, 
             input_data: FlattenedDaskDataset, 
             fire_data: FlattenedTruthTable,
-            feature_num: int = -1):
+            feature_num: int = -1,
+            return_batches: bool = True):
         '''
         input data is climate variables \\
         training data is fire data
@@ -53,16 +56,39 @@ class geoDataset(Dataset):
         self.input_data = input_data
         self.fire_data = fire_data
 
+        self.start_date = input_data.start_date
+        assert pd.to_datetime(self.start_date) == pd.to_datetime(fire_data.start_date)
+
+        self.return_batches = return_batches
+
         self.feature_num = feature_num if feature_num > 0 else input_data.total_features
 
         grid_shape = input_data.sizes['longitude']
         self.batches_per_row = grid_shape[0] // 64 if grid_shape[0] >= 64 else 1
+        self.rows = input_data.sizes['latitude']
 
         ## validation eg have the same number of datapoints
 
 
     def __len__(self):
         return len(self.input_data)
+    
+    def da_from_df(self, df: pd.DataFrame):
+
+        lat_vals = self.input_data.latitude
+        long_vals = self.input_data.longitude
+
+        df = df[['latitude', 'longitude']].drop_duplicates()
+        df['presence'] = 1
+
+        da = df.set_index(['latitude', 'longitude'])['presence'].to_xarray()
+
+        da = da.reindex({
+            'latitude': lat_vals,
+            'longitude': long_vals
+        }, fill_value=0).fillna(0)
+
+        return da
 
     def __getitem__(self, index):
         '''
@@ -70,23 +96,39 @@ class geoDataset(Dataset):
         - features are relevent input datapoints
         - label is the relevant fire data (either 1 or 0)
         '''
-
-        features = [self.input_data[index, i] for i in range(self.feature_num)]
-        feature_tensor = torch.tensor(features)
-        label = self.fire_data[index]
-
-        if label == 1:
-            print(f'{feature_tensor = }, {label = }')
-
-        if self.batch_prep:
-            return features, label
         
-        return feature_tensor, label
+        if self.return_batches:
+
+            days, hour = divmod(index, 24)
+            labels = self.fire_data.get_hourly_data(days, hour)
+
+            label_grid = self.da_from_df(labels)
+
+            if hour == 0:
+                days -= 1
+                hour = 24
+
+            data = self.input_data.full_hourly_data(
+                time = self.start_date + timedelta(days=days),
+                step = hour
+            )
+
+            data['fire'] = label_grid
+
+            return data
+
+        else:
+
+            features = [self.input_data[index, i] for i in range(self.feature_num)]
+            feature_tensor = torch.tensor(features)
+            label = self.fire_data[index]
+            
+            return feature_tensor, label
 
 class BatchDataLoader:
     
-    def __init__(self):
-        pass
+    def __init__(self, dataset: geoDataset):
+        self.ds = dataset
 
     def __iter__(self):
         pass
