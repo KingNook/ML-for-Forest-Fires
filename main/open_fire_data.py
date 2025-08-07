@@ -48,7 +48,7 @@ class FlattenedTruthTable:
         date = (self.start_date + timedelta(days=days)).strftime(r'%Y-%m-%d')
         hours = float(hours)
 
-        data = self.data.query('acq_date = @date and acq_time = @hours')
+        data = self.data[(self.data['acq_date'] == date) & (self.data['acq_time'] == hours)]
 
         return data
 
