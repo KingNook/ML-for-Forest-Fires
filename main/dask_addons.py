@@ -75,8 +75,8 @@ class FlattenedDaskDataset:
         self.compute_running_totals()
         self.compute_resultant_speed()
         
-        self.data = self.data.drop_vars(('u10', 'v10'))
-        self.prior_data = self.prior_data.drop_vars(self.proxy_vars)
+        self.data = self.data.drop_vars(('u10', 'v10')).chunk(chunks = {'latitude': 9, 'longitude': 19, 'time': 365, 'step': 24})
+        self.prior_data = self.prior_data.drop_vars(self.proxy_vars).chunk(chunks = {'latitude': 9, 'longitude': 19, 'time': 185, 'step': 24})
 
     def clean_na(self, ds: xr.Dataset):
         
