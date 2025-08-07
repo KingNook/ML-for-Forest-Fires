@@ -1,8 +1,8 @@
 import torch
 import numpy as np
+import xarray as xr
 import pandas as pd
-import os
-import json
+from datetime import datetime, timedelta
 
 from torch import nn
 from torch.utils.data import DataLoader, Dataset
@@ -45,9 +45,9 @@ class geoDataset(Dataset):
     def __init__(
             self, 
             input_data: FlattenedDaskDataset, 
-            fire_data: FlattenedTruthTable, 
-            batch_prep: bool = False, 
-            feature_num: int = -1):
+            fire_data: FlattenedTruthTable,
+            feature_num: int = -1,
+            return_batches: bool = True):
         '''
         input data is climate variables \\
         training data is fire data
@@ -56,15 +56,52 @@ class geoDataset(Dataset):
         self.input_data = input_data
         self.fire_data = fire_data
 
-        self.batch_prep = batch_prep
+        self.start_date = input_data.start_date
+        self.end_date = input_data.end_date
+        assert pd.to_datetime(self.start_date) == pd.to_datetime(fire_data.start_date)
+
+        self.return_batches = return_batches
 
         self.feature_num = feature_num if feature_num > 0 else input_data.total_features
 
+        self.cols = input_data.sizes['longitude']
+        self.batches_per_row = round(self.cols[0] / 64) if self.cols[0] > 64 else 1
+        self.rows = input_data.sizes['latitude']
+
+        self.lat_vals = self.input_data.latitude
+        self.long_vals = self.input_data.longitude
+
         ## validation eg have the same number of datapoints
 
+        ## define batches
+        self.calc_batches()
+
+    def calc_batches(self):
+        '''
+        ONE-OFF TO BE CALLED ON __INIT__ \\
+        calculates the coords of each batch
+        '''
+
+        batch_size, _ = divmod(self.cols, self.batches_per_row)
+        self.batch_long = [self.long_vals[i*batch_size:(i+1)*batch_size] for i in range(self.batches_per_row-1)]
+        self.batch_long.append([self.long_vals[(self.batches_per_row-1)*batch_size:]])
 
     def __len__(self):
-        return len(self.input_data)
+        return (self.end_date - self.start_date).days * 24 * self.batches_per_row * self.rows
+    
+    def da_from_df(self, df: pd.DataFrame):
+
+        df = df[['latitude', 'longitude']].drop_duplicates()
+        df['presence'] = 1
+
+        da = df.set_index(['latitude', 'longitude'])['presence'].to_xarray()
+
+        da = da.reindex({
+            'latitude': self.lat_vals,
+            'longitude': self.long_vals
+        }, fill_value=0).fillna(0)
+
+        return da
 
     def __getitem__(self, index):
         '''
@@ -72,127 +109,125 @@ class geoDataset(Dataset):
         - features are relevent input datapoints
         - label is the relevant fire data (either 1 or 0)
         '''
-
-        features = [self.input_data[index, i] for i in range(self.feature_num)]
-        feature_tensor = torch.tensor(features)
-        label = self.fire_data[index]
-
-        if label == 1:
-            print(f'{feature_tensor = }, {label = }')
-
-        if self.batch_prep:
-            return features, label
         
-        return feature_tensor, label
+        if self.return_batches:
 
-def save_batches(
-        data: geoDataset,
-        save_path: str,
-        batch_size: int = 64, 
-        batch_num: int = 50,
-        dataset_name: str = None,
-        drop_last: bool = False):
-    '''
-    divides data into batches then saves batches to disk in separate files (?) so can be loaded individually
-    each batch should be readable as a torch tensor (although it will likely be written to a json file)
+            days, hour = divmod(index, 24)
+            labels = self.fire_data.get_hourly_data(days, hour)
 
-    # args
-    - **data**: *geoDataset* / similar \\
-    dataset to be divvied up
-    - **batch_size**: *int* \\
-    size of each batch
-    - **batch_num**: *int* \\
-    number of batches per file
-    - **save_path**: *path_like* \\
-    path to directory to which batches will be saved
-    '''
+            label_grid = self.da_from_df(labels)
 
-    dataset_name = dataset_name if dataset_name != None else ''
-    file_length = batch_size * batch_num ## samples per file
+            if hour == 0:
+                days -= 1
+                hour = 24
 
-    total_data_size = len(data)
+            data = self.input_data.full_hourly_data(
+                time = self.start_date + timedelta(days=days),
+                step = hour
+            )
 
-    from math import ceil
-    total_files = ceil(total_data_size / file_length)
+            data['fire'] = label_grid
 
-    ## write to settings.json to make reading files easier
-    with open(os.path.join(save_path, 'settings.json'), 'w') as settings_file:
-        settings_file.write(json.dumps({
-            'batch_size': batch_size,
-            'batch_num': batch_num,
-            'num_files': total_files,
-            'batch_name': dataset_name if dataset_name else None
-        }))
+            return data
 
-    print(f'[save_batches] {total_files} files')
+        else:
 
-    for i in range(total_files):
-        print(f'[save_batches] batch {i} / {total_files}')
-        file_name = f'{dataset_name}-batch_{i}.json' if dataset_name else f'batch_{i}.json'
-        file_path = os.path.join(save_path, file_name)
-
-        with open(file_path, 'w') as batch_file:
-            # grab samples i * batch size to i * batch_size + 1
-            start_point = i * file_length
-
-            for j in range(batch_num):
-                features = []
-                labels = []
-                batch_start = start_point + j * batch_size
-                for k in range(batch_size):
-                    sample_num = batch_start + k
-                    if sample_num < total_data_size:
-                        sample = data[sample_num]
-                        features.append(sample[0])
-                        labels.append(sample[1])
-                    else:
-                        break ## avoid pointless iteration
-
-                ## each batch should be [(n features), (n samples)]
-
-                batch_file.write(json.dumps((features, labels))) 
-                batch_file.write('\n')
+            features = [self.input_data[index, i] for i in range(self.feature_num)]
+            feature_tensor = torch.tensor(features)
+            label = self.fire_data[index]
+            
+            return feature_tensor, label
 
 class BatchDataLoader:
     
-    def __init__(self, data_dir_path):
+    def __init__(self, dataset: geoDataset):
+        self.ds = dataset
 
-        self.path = data_dir_path
+        self.batch_longs = dataset.batch_long ## longitude values of each batch
+        self.start_date = dataset.start_date
 
-    def load_batches(self):
+        self.lat_vals = dataset.lat_vals
+        self.long_vals = dataset.batch_long
+
+        self.max_lat_idx = self.ds.rows
+        self.max_long_idx = self.ds.batches_per_row
+
+        assert self.max_long_idx == len(self.long_vals)
+
+        self.feature_vars = []
+        self.label_vars = []
+
+        self.reset_idx()
+        
+
+    def reset_idx(self):
+        self.idx = 0
+
+        self.lat_idx = 0
+        self.long_idx = 0
+
+        self.refresh_data = True
+
+
+    def extract_data(self, data: xr.Dataset, lat_idx: int, long_idx: int) -> tuple[torch.Tensor, torch.Tensor]:
         '''
-        returns iterator which gives one batch each time
+        grabs the batch according to given indices
+        ## Parameters
+        **data**: *xarray.Dataset* \\
+        Data for the whole grid for a single time, step
+
+        **lat_idx**: *int* \\
+        Ranges from `0` to `self.max_lat_idx`; self-explanatory
+
+        **long_idx**: *int* \\
+        Specifies which set of longitude values should be used for the batch
+
+        ## Returns
+        **batch**: *tuple*, (X, Y) \\
+        A tuple containing `X`, the input features, and `Y`, the observed data (ie 1 for fire, 0 for not)
         '''
 
-        data_files = os.listdir(self.path)
+        values = data.sel(
+            latitude = self.lat_vals[lat_idx],
+            longitude = self.long_vals[long_idx]
+        )
 
-        ## check only files of correct form
-        if 'settings.json' in data_files:
-            ## read settings
-            with open('settings.json', 'r') as settings_file:
-                settings = json.load(settings_file)
+        features = [values[var].values for var in self.feature_vars] ## rows are features, columns are samples
+        features = np.ndarray(features).transpose() ## rows are samples, columns are features
 
-        else:
-            ## default settings
-            settings = {
-                'batch_size': 64,
-                'batch_num': 1,
-                'num_files': 1,
-                'dataset_name': None
-            }
+        labels = np.ndarray([values[var].values for var in self.label_vars]).transpose()
 
-        for file_num in range(settings['num_files']):
-            file_name = f'{settings['dataset_name']}-batch_{file_num}.json' if settings['dataset_name'] else f'batch_{file_num}.json'
-            file_path = os.path.join(self.path, file_name)
-            with open(file_path, 'r') as batch_file:
-                for line in batch_file:
-                    ## should read line by line
-                    batch = json.loads(line) # loads as list of (feature, label) pairs
-                    yield batch
+        return torch.tensor(features), torch.tensor(labels)
+
 
     def __iter__(self):
-        return self.load_batches()
-    
+        return self
+
+    def __next__(self):
+        if self.refresh_data:
+            try:
+                grid_data = self.ds[self.idx]
+                self.refresh_data = False
+            except IndexError:
+                self.reset_idx()
+                raise StopIteration
+        
+        batch = self.extract_data(grid_data, self.lat_idx, self.long_idx)
+
+        self.long_idx += 1
+        if self.long_idx == self.max_long_idx:
+            self.long_idx = 0
+            self.lat_idx += 1
+
+            if self.lat_idx == self.max_lat_idx:
+                self.lat_idx = 0
+                self.idx += 1
+                self.refresh_data = True
+
+        yield batch
+
+
+
 
 def train(model, dataloader, loss_fn, optimizer):
 
