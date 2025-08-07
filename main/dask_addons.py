@@ -126,6 +126,24 @@ class FlattenedDaskDataset:
         hours = (self.end_date - self.start_date).days * 24
         return hours * self.grid_size
 
+    ### full hourly data
+    def full_hourly_data(self, time, step):
+
+        grid_data = self.data.sel(time=time, step=step)
+
+        for var in self.proxy_vars:
+            tot_name = f'tot_{var}'
+
+            current_total = grid_data[tot_name]
+
+            prev_totals = [self._get_hourly_data(time-timedelta(days=i))[tot_name] for i in range(30, 180, 30)]
+
+            grid_data[f'mu_{var}_30'] = current_total / 30
+            grid_data[f'mu_{var}_90'] = (current_total + sum(prev_totals[:2])) / 90
+            grid_data[f'mu_{var}_180'] = (current_total + sum(prev_totals)) / 180
+
+        return grid_data
+
 
     ### get item / indexing ###
     def __getitem__(self, key):
