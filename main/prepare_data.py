@@ -4,6 +4,7 @@ various functions for preparing data before passing it into the model
 
 import xarray as xr
 import numpy as np
+import pandas as pd
 import os
 
 from dask_addons import FlattenedDaskDataset
@@ -79,6 +80,49 @@ def concat_gribs_from_subdirs(root_dir, output_name='combined.grib'):
                     outfile.write(infile.read())
     print(f"\n✅ Combined GRIB saved to: {output_path}")
 
+def process_fire_data(df: pd.DataFrame):
+    '''
+    - round latitude, longitude, acq_time
+    '''
+
+    df = df.copy()
+
+    df['latitude'] = df['latitude'].round(1)
+    df['longitude'] = df['longitude'].round(1)
+
+    df['acq_time'] = np.floor(df['acq_time']/100).astype(np.float64)
+    
+    mask = df['acq_time'] == 0
+
+    df.loc[mask, 'acq_time'] = 24.0
+    df.loc[mask, 'acq_date'] = df.loc[mask, 'acq_date'] - 1
+
+    return df
+
+def da_from_df(df: pd.DataFrame, lat: list, long: list, time: list, step: list) -> xr.DataArray:
+
+    df = process_fire_data(df)
+
+    df = df[['longitude', 'latitude', 'acq_date', 'acq_time']].drop_duplicates()
+    df = df.rename(columns = {
+        'acq_date': 'time',
+        'acq_time': 'step'
+    })
+
+    df['presence'] = 1
+
+    da = df.set_index(['longitude', 'latitude', 'time', 'step'])['presence'].to_xarray()
+
+    da = da.reindex({
+        'latitude': lat,
+        'longitude': long,
+        'time': time,
+        'step': step
+    }, fill_value = 0).fillna(0)
+
+    return da
+
+
 if __name__ == '__main__':
 
     import time
@@ -92,7 +136,13 @@ if __name__ == '__main__':
     data_open_time = time.time()
     print(f'Data open in: {time_elapsed(data_open_time)}')
     ds = FlattenedDaskDataset(data, prior_data)
+
+    fire_data = pd.read_csv('./data/_FIRE/la_forest_csv/data.csv')
+    fire_da = da_from_df(fire_data, data.latitude.values, data.longitude.values, data.time.values, data.step.values)
+    ds.data['fire'] = fire_da
+
     ds.setup()
+
     setup_time = time.time()
     print(f'Setup done in: {time_elapsed(setup_time, data_open_time)} // {time_elapsed(setup_time)}')
     ds.data.to_zarr('./data/_ZARR_READY/la_main_data')
