@@ -9,7 +9,10 @@ import request_climate_data as rcd
 from CDS_api_requests import DEFAULT_YEARS, ALL_MONTHS, ALL_DAYS
 
 from extents import ALASKA_RANGE_EXTENT, LA_FORESTS_EXTENT, Extent
+from prepare_data import concat_gribs_from_subdirs
 import extents
+
+import os
 
 '''input_variables = rcd.standard_variables + rcd.wind_speed_variables
 
@@ -46,8 +49,12 @@ def request_total_data(
         months = ['07', '08', '09', '10', '11', '12']
     )
 
-    rcd.multi_download(proxy_requests, 'prior_data', f'{name}_prior', max_threads=2)
-    unzippify.unpack_data_folder(f'./data/{name}_prior', remove=True)
+    prior_dir_name = os.path.join(data_path, f'{name}_prior')
+
+    rcd.multi_download(proxy_requests, 'prior_data', prior_dir_name, max_threads=2)
+    unzippify.unpack_data_folder(prior_dir_name, remove=True)
+    concat_gribs_from_subdirs(prior_dir_name)
+
 
     input_requests = CDS_api_requests.era5_land_request(
         variables = input_variables,
@@ -55,5 +62,8 @@ def request_total_data(
         years = ['2010', '2011', '2012', '2013', '2014']
     )
     
-    rcd.multi_download(input_requests, 'input_data', f'{name}_main', max_threads=2)
-    unzippify.unpack_data_folder(f'./data/{name}_main', remove=True)
+    dir_name = os.path.join(data_path, f'{name}_main')
+
+    rcd.multi_download(input_requests, 'input_data', dir_name, max_threads=2)
+    unzippify.unpack_data_folder(dir_name, remove=True)
+    concat_gribs_from_subdirs(dir_name)
