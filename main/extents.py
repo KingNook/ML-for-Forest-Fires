@@ -102,3 +102,6 @@ NORTH_AUSTRALIA_EXTENT = Extent([129.0, -16.9, 145.5, -10.1])
 
 # california (should all be land)
 LA_FORESTS_EXTENT = Extent([-118.3,33.9,-116.5,34.7])
+
+# canada richardson fire
+CANADA_RICHARDSON_EXTENT = Extent([-113.3, 55.7, -108.6, 59.1], name='canada')
