@@ -9,6 +9,7 @@ import request_climate_data as rcd
 from CDS_api_requests import DEFAULT_YEARS, ALL_MONTHS, ALL_DAYS
 
 from extents import ALASKA_RANGE_EXTENT, LA_FORESTS_EXTENT, Extent
+import extents
 
 '''input_variables = rcd.standard_variables + rcd.wind_speed_variables
 
@@ -31,7 +32,6 @@ unzippify.unpack_data_folder('./data/alaska_main', remove=True)'''
 def request_total_data(
         extent: Extent,
         data_path: str = './data',
-        
     ):
 
     name = extent.name
@@ -46,8 +46,8 @@ def request_total_data(
         months = ['07', '08', '09', '10', '11', '12']
     )
 
-    rcd.multi_download(proxy_requests, 'proxy_data', f'{name}_prior', max_threads=2)
-    unzippify.unpack_data_folder(f'./data/{name}_proxy', remove=True)
+    rcd.multi_download(proxy_requests, 'prior_data', f'{name}_prior', max_threads=2)
+    unzippify.unpack_data_folder(f'./data/{name}_prior', remove=True)
 
     input_requests = CDS_api_requests.era5_land_request(
         variables = input_variables,
