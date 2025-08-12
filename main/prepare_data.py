@@ -101,7 +101,7 @@ def process_fire_data(df: pd.DataFrame):
 
     return df
 
-def da_from_df(df: pd.DataFrame, lat: list, long: list, time: list, step: list) -> xr.DataArray:
+def ds_from_df(df: pd.DataFrame, lat: list, long: list, time: list, step: list) -> xr.DataArray:
 
     df_proc= process_fire_data(df)[['longitude', 'latitude', 'acq_date', 'acq_time']].drop_duplicates()
 
@@ -125,7 +125,10 @@ def da_from_df(df: pd.DataFrame, lat: list, long: list, time: list, step: list) 
         'step': step
     }).fillna(0)
 
-    return da
+    ds = xr.Dataset()
+    ds['fire'] = da
+
+    return ds.assign(time=lambda ds: ds.time.astype('datetime64[ns]'))
 
 
 if __name__ == '__main__':
@@ -138,19 +141,19 @@ if __name__ == '__main__':
 
     prior_data = xr.open_dataset('./data/la_forest_prior/combined.grib', chunks='auto', decode_timedelta=False)
     data = xr.open_dataset('./data/la_forest_main/combined.grib', chunks={'time': 365 }, decode_timedelta=False)
+    fire_data = pd.read_csv('./data/_FIRE/la_forest_csv/data.csv', parse_dates=['acq_date'])
     data_open_time = time.time()
     print(f'Data open in: {time_elapsed(data_open_time)}')
     ds = FlattenedDaskDataset(data, prior_data)
-
-    fire_data = pd.read_csv('./data/_FIRE/la_forest_csv/data.csv')
-    fire_da = da_from_df(fire_data, data.latitude.values, data.longitude.values, data.time.values, data.step.values)
-    ds.data['fire'] = fire_da
+    
+    fire_ds = ds_from_df(fire_data, data.latitude.values, data.longitude.values, data.time.values, data.step.values)
+    ds.data = ds.data.merge(fire_ds)
 
     ds.setup()
 
     setup_time = time.time()
     print(f'Setup done in: {time_elapsed(setup_time, data_open_time)} // {time_elapsed(setup_time)}')
-    ds.data.to_zarr('./data/_ZARR_READY/la_main_data')
-    ds.prior_data.to_zarr('./data/_ZARR_READY/la_prior_data')
+    ds.data.to_zarr('./data/_ZARR/canada')
+    ds.prior_data.to_zarr('./data/_ZARR/canada_prior')
     finish = time.time()
     print(f'Data writing done in: {time_elapsed(finish)}s // {time_elapsed(finish)}')
