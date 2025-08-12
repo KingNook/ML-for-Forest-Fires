@@ -95,30 +95,35 @@ def process_fire_data(df: pd.DataFrame):
     mask = df['acq_time'] == 0
 
     df.loc[mask, 'acq_time'] = 24.0
-    df.loc[mask, 'acq_date'] = df.loc[mask, 'acq_date'] - 1
+    df.loc[mask, 'acq_date'] = df.loc[mask, 'acq_date'] - pd.Timedelta(days=1)
+
+    df['acq_date'] = df['acq_date'].astype(int)
 
     return df
 
 def da_from_df(df: pd.DataFrame, lat: list, long: list, time: list, step: list) -> xr.DataArray:
 
-    df = process_fire_data(df)
+    df_proc= process_fire_data(df)[['longitude', 'latitude', 'acq_date', 'acq_time']].drop_duplicates()
 
-    df = df[['longitude', 'latitude', 'acq_date', 'acq_time']].drop_duplicates()
-    df = df.rename(columns = {
+    df_renamed = df_proc.rename(columns = {
         'acq_date': 'time',
         'acq_time': 'step'
     })
 
-    df['presence'] = 1
+    df_renamed['presence'] = 1
 
-    da = df.set_index(['longitude', 'latitude', 'time', 'step'])['presence'].to_xarray()
+    da = df_renamed.set_index(['longitude', 'latitude', 'time', 'step'])
+
+    idx = pd.MultiIndex.from_product([long, lat, time, step], names=['longitude', 'latitude', 'time', 'step'])
+    da = da.reindex(idx)
+    da = da['presence'].to_xarray()
 
     da = da.reindex({
         'latitude': lat,
         'longitude': long,
         'time': time,
         'step': step
-    }, fill_value = 0).fillna(0)
+    }).fillna(0)
 
     return da
 
