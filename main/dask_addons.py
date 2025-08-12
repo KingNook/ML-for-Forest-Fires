@@ -72,17 +72,31 @@ class FlattenedDaskDataset:
         `(data, prior_data)`
         '''
 
-        self.compute_running_totals()
+        # self.compute_running_totals()
         self.compute_resultant_speed()
+        self.calculate_proxies()
         
         self.data = self.data.drop_vars(('u10', 'v10')).chunk(chunks = {'latitude': 9, 'longitude': 19, 'time': 365, 'step': 24})
         self.prior_data = self.prior_data.drop_vars(self.proxy_vars).chunk(chunks = {'latitude': 9, 'longitude': 19, 'time': 185, 'step': 24})
 
-    def clean_na(self, ds: xr.Dataset):
-        
-        ds_stacked = ds.stack(dt = ('time', 'step'))
-        ds_clean = ds_stacked.dropna(dim = 'dt', how='all')
-        return ds_clean.unstack(dim = 'dt')
+    @track_runtime
+    def calculate_proxies(self):
+
+        for timeframe in self.proxy_timeframes:
+            window = timeframe * 24
+
+            ds = xr.concat([self.prior_data, self.data])
+            ds = ds.stack(dt = ['time', 'step']).dropna(dim='dt')
+            ds = ds.chunk({'dt':window})
+
+            for var in self.proxy_vars: 
+                prior_ds = self.prior_data[var]
+                main_ds = self.data[var]
+
+                ds = xr.concat([prior_ds, main_ds], dim='time')
+
+                
+                ds = ds.rolling(dt=timeframe, min_periods = 1, center=False).mean()
 
     @track_runtime
     def compute_running_totals(self):
