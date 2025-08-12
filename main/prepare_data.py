@@ -95,7 +95,7 @@ def process_fire_data(df: pd.DataFrame):
     mask = df['acq_time'] == 0
 
     df.loc[mask, 'acq_time'] = 24.0
-    df.loc[mask, 'acq_date'] = df.loc[mask, 'acq_date'] - 1
+    df.loc[mask, 'acq_date'] = df.loc[mask, 'acq_date'] - pd.Timedelta(days=1)
 
     return df
 
@@ -130,22 +130,26 @@ if __name__ == '__main__':
 
     def time_elapsed(end, start = start_time):
         return f'{end - start:.02f}s'
+    
+    print('Opening data...')
+    prior_data = xr.open_dataset('./data/canada_prior/combined.grib', chunks='auto', decode_timedelta=False, engine='cfgrib')
+    print('Prior data loaded...')
+    data = xr.open_dataset('./data/canada_main/combined.grib', chunks={'time': 365 }, decode_timedelta=False, engine='cfgrib')
+    # data = xr.open_zarr('./data/_ZARR_READY/canada', chunks={'time': 365 }, decode_timedelta=False)
 
-    prior_data = xr.open_dataset('./data/la_forest_prior/combined.grib', chunks='auto', decode_timedelta=False)
-    data = xr.open_dataset('./data/la_forest_main/combined.grib', chunks={'time': 365 }, decode_timedelta=False)
     data_open_time = time.time()
     print(f'Data open in: {time_elapsed(data_open_time)}')
     ds = FlattenedDaskDataset(data, prior_data)
 
-    fire_data = pd.read_csv('./data/_FIRE/la_forest_csv/data.csv')
+    fire_data = pd.read_csv('./data/_FIRE/canada_richardson_extent/raw.csv', parse_dates=['acq_date'])
     fire_da = da_from_df(fire_data, data.latitude.values, data.longitude.values, data.time.values, data.step.values)
+    
     ds.data['fire'] = fire_da
-
     ds.setup()
 
     setup_time = time.time()
     print(f'Setup done in: {time_elapsed(setup_time, data_open_time)} // {time_elapsed(setup_time)}')
-    ds.data.to_zarr('./data/_ZARR_READY/la_main_data')
-    ds.prior_data.to_zarr('./data/_ZARR_READY/la_prior_data')
+    ds.data.to_zarr('./data/_ZARR/canada')
+    ds.prior_data.to_zarr('./data/_ZARR/canada_prior')
     finish = time.time()
     print(f'Data writing done in: {time_elapsed(finish)}s // {time_elapsed(finish)}')
