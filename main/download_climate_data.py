@@ -35,6 +35,8 @@ unzippify.unpack_data_folder('./data/alaska_main', remove=True)'''
 def request_total_data(
         extent: Extent,
         data_path: str = './data',
+        prior: bool = True,
+        main: bool = True
     ):
 
     name = extent.name
@@ -42,28 +44,31 @@ def request_total_data(
     input_variables = rcd.standard_variables + rcd.wind_speed_variables
     proxy_variables = rcd.proxy_base_variables
 
-    proxy_requests = CDS_api_requests.era5_land_request(
-        variables = proxy_variables,
-        extent = extent.CDS,
-        years = ['2009'],
-        months = ['07', '08', '09', '10', '11', '12']
-    )
+    if prior:
+        proxy_requests = CDS_api_requests.era5_land_request(
+            variables = proxy_variables,
+            extent = extent.CDS,
+            years = ['2009'],
+            months = ['07', '08', '09', '10', '11', '12']
+        )
 
-    prior_dir_name = os.path.join(data_path, f'{name}_prior')
+        prior_dir_name = f'{name}_prior'
 
-    rcd.multi_download(proxy_requests, 'prior_data', prior_dir_name, max_threads=2)
-    unzippify.unpack_data_folder(prior_dir_name, remove=True)
-    concat_gribs_from_subdirs(prior_dir_name)
+        rcd.multi_download(proxy_requests, 'prior_data', prior_dir_name, max_threads=-1)
+        unzippify.unpack_data_folder(prior_dir_name, remove=True)
+        concat_gribs_from_subdirs(prior_dir_name)
 
+    if main:
+        input_requests = CDS_api_requests.era5_land_request(
+            variables = input_variables,
+            extent = extent.CDS, 
+            years = ['2010', '2011', '2012', '2013', '2014']
+        )
+        
+        dir_name = f'{name}_main'
 
-    input_requests = CDS_api_requests.era5_land_request(
-        variables = input_variables,
-        extent = extent.CDS, 
-        years = ['2010', '2011', '2012', '2013', '2014']
-    )
-    
-    dir_name = os.path.join(data_path, f'{name}_main')
+        rcd.multi_download(input_requests, 'input_data', dir_name, max_threads=-1)
+        unzippify.unpack_data_folder(dir_name, remove=True)
+        concat_gribs_from_subdirs(dir_name)
 
-    rcd.multi_download(input_requests, 'input_data', dir_name, max_threads=2)
-    unzippify.unpack_data_folder(dir_name, remove=True)
-    concat_gribs_from_subdirs(dir_name)
+request_total_data(extents.CANADA_RICHARDSON_EXTENT, prior = False)
