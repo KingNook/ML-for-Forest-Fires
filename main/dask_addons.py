@@ -24,7 +24,7 @@ class FlattenedDaskDataset:
     proxy_vars = ('tp', 't2m')
     proxy_timeframes = (30, 90, 180)
 
-    def __init__(self, data: xr.Dataset, prior_data: xr.Dataset):
+    def __init__(self, data: xr.Dataset, prior_data: xr.Dataset, clean_data: bool = True):
         '''
         Use `xr.open_zarr()` to get Datasets from the zarr groups;
         try to use `decode_timedelta=False` so that `step` is given as `np.float64`
@@ -37,15 +37,22 @@ class FlattenedDaskDataset:
         data for at least 180 days before the start of the period of study
         '''
 
-        self.data = self.clean_na(data)
-        self.prior_data = self.clean_na(prior_data)
+        if clean_data:
+            self.data = self.clean_na(data)
+            self.prior_data = self.clean_na(prior_data)
+
+        else:
+            self.data = data
+            self.prior_data = prior_data
 
         ## check we have no repeated days
         assert pd.infer_freq(self.data.time) != None
         assert pd.infer_freq(self.prior_data.time) != None
 
-        self.start_date = pd.to_datetime(min(data.time.values)).to_pydatetime() + timedelta(days = 1)
-        self.end_date = pd.to_datetime(max(data.time.values)).to_pydatetime()
+        self.clean_coords()
+
+        self.start_date = pd.to_datetime(min(data.time.values))
+        self.end_date = pd.to_datetime(max(data.time.values))
 
         ## grid values
         self.sizes = self.data.sizes
@@ -78,6 +85,30 @@ class FlattenedDaskDataset:
         
         self.data = self.data.drop_vars(('u10', 'v10')).chunk(chunks = {'latitude': 9, 'longitude': 19, 'time': 365, 'step': 24})
         self.prior_data = self.prior_data.drop_vars(self.proxy_vars).chunk(chunks = {'latitude': 9, 'longitude': 19, 'time': 185, 'step': 24})
+        self.rechunk()
+
+    def clean_coords(self):
+        '''
+        rounds latitude, longitude, step so as to avoid floating point precision issues
+        '''
+
+        float_dims = ['latitude', 'longitude', 'step']
+        for dim in float_dims:
+            self.prior_data[dim] = np.round(self.data[dim], decimals=1)
+            self.data[dim] = np.round(self.data[dim], decimals=1)
+
+    def rechunk(self):
+
+        self.data = self.data.chunk('auto')
+        self.prior_data = self.prior_data.chunk('auto')
+
+    def clean_na(self, ds: xr.Dataset):
+
+        ds_stacked = ds.stack(dt = ('time', 'step'))
+        ds_clean = ds_stacked.dropna(dim = 'dt', how='all')
+        ds_unstacked = ds_clean.unstack(dim = 'dt')
+        
+        return ds_unstacked.chunk('auto')
 
     @track_runtime
     def calculate_proxies(self):
@@ -85,41 +116,20 @@ class FlattenedDaskDataset:
         for timeframe in self.proxy_timeframes:
             window = timeframe * 24
 
-            ds = xr.concat([self.prior_data, self.data])
-            ds = ds.stack(dt = ['time', 'step']).dropna(dim='dt')
-            ds = ds.chunk({'dt':window})
-
-            for var in self.proxy_vars: 
+            for var in self.proxy_vars:
                 prior_ds = self.prior_data[var]
                 main_ds = self.data[var]
-
                 ds = xr.concat([prior_ds, main_ds], dim='time')
 
-                
+                ds = ds.stack(dt = ['time', 'step']).dropna(dim='dt')
+                ds = ds.chunk({'dt':window})
+
                 ds = ds.rolling(dt=timeframe, min_periods = 1, center=False).mean()
+                ds_unstacked = ds.unstack(dim='dt')
+                ds_aligned = ds_unstacked.sel(time=pd.date_range(self.start_date, self.end_date, freq='D'))
 
-    @track_runtime
-    def compute_running_totals(self):
-        
-        for var in self.proxy_vars:
-            final_name = f'tot_{var}'
-
-            da_main = self.data[var]
-            da_prior = self.prior_data[var]
-
-            da = xr.concat((da_prior, da_main), dim = 'time')
-
-            times = da.time.values.astype("datetime64[h]")
-            steps = da.step.values.astype("timedelta64[h]")
-            valid_time = times[:, None] + steps[None, :]
-            da2 = da.assign_coords(valid_time=(("time", "step"), valid_time)).chunk({"time": 100, "step": -1})
-            da_stack = da2.stack(vt=("time", "step"))
-            da_roll = da_stack.rolling(vt=720, min_periods=1, center=False).mean().drop_duplicates(dim='vt')
-            final_da = da_roll.drop_vars("valid_time").unstack("vt")
-
-            self.data[final_name] = final_da.sel(time = slice(self.start_date + timedelta(days=-1), None))
-            self.prior_data[final_name] = final_da.sel(time = slice(None, self.start_date))
-
+                name = f'mu_{var}_{timeframe}'
+                self.data[name] = ds_aligned
 
 
     def compute_resultant_speed(self):

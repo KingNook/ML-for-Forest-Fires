@@ -11,4 +11,4 @@ __pycache__/
 *.idx
 *.zip
 
-!main/model.ipynb
+!main/rf.ipynb
