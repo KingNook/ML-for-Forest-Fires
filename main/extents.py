@@ -89,19 +89,20 @@ class Extent:
 ## INTERESTING REGIONS
 
 # small section around the alaska range
-ALASKA_RANGE_EXTENT = Extent([-153.7, 61.3, -140.7, 65.0])
+## NB THIS IS TOO SMALL AND DOESN'T REALLY HAVE ANY FIRES
+ALASKA_RANGE_EXTENT = Extent([-153.7, 61.3, -140.7, 65.0], name='alaska_range')
 
 # basically all of the western half of washington and oregon
-OREGON_COAST_RANGE_EXTENT = Extent([-126.0, 41.9, -116.438, 49.0])
+OREGON_COAST_RANGE_EXTENT = Extent([-126.0, 41.9, -116.438, 49.0], name='oregon_coast')
 
 # all of sumatra, and peninsular malaysia
-INDO_MALAY_RANGE_EXTENT = Extent([94.9, -6.7, 106.6, 6.5]) 
+INDO_MALAY_RANGE_EXTENT = Extent([94.9, -6.7, 106.6, 6.5], name='indo_malay') 
 
 # northern tip of Northern Territory and Queensland (AUS)
-NORTH_AUSTRALIA_EXTENT = Extent([129.0, -16.9, 145.5, -10.1])
+NORTH_AUSTRALIA_EXTENT = Extent([129.0, -16.9, 145.5, -10.1], name='north_aus')
 
 # california (should all be land)
-LA_FORESTS_EXTENT = Extent([-118.3,33.9,-116.5,34.7])
+LA_FORESTS_EXTENT = Extent([-118.3,33.9,-116.5,34.7], name='la_forest')
 
 # canada richardson fire
 CANADA_RICHARDSON_EXTENT = Extent([-113.3, 55.7, -108.6, 59.1], name='canada')
