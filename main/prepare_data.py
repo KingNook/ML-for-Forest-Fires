@@ -132,6 +132,49 @@ def ds_from_df(df: pd.DataFrame, lat: list, long: list, time: list, step: list) 
 
     return ds
 
+def raw_data_to_zarr(data_path: str, extent_name: str):
+
+    main_data_path = os.path.join(data_path, f'{extent_name}_main', 'combined.grib')
+    prior_data_path = os.path.join(data_path, f'{extent_name}_prior', 'combined.grib')
+
+    prior_data = xr.open_dataset(prior_data_path, decode_timedelta=False)
+    data = xr.open_dataset(main_data_path, decode_timedelta=False)
+
+    ds = FlattenedDaskDataset(data, prior_data, clean_data=True)
+    ds.rechunk()
+
+    main_zarr_path = os.path.join(data_path, f'{extent_name}_main')
+    prior_zarr_path = os.path.join(data_path, f'{extent_name}_prior')
+
+    ds.data.to_zarr(main_zarr_path)
+    ds.prior_data.to_zarr(prior_zarr_path)
+
+def setup_from_zarr(data_path, extent_name, fire_dir):
+
+    main_data_path = os.path.join(data_path, f'{extent_name}_main')
+    prior_data_path = os.path.join(data_path, f'{extent_name}_prior')
+
+    prior_data = xr.open_zarr(prior_data_path, decode_timedelta=False)
+    data = xr.open_zarr(main_data_path, decode_timedelta=False)
+
+    ds = FlattenedDaskDataset(data, prior_data, clean_data=False)
+    ds.setup()
+
+    lat = data.latitude.values.round(decimals=1)
+    long = data.longitude.values.round(decimals=1)
+    time_vals = data.time.values.astype('datetime64[ns]')
+    step = data.step.values.astype(float)
+
+    fire_data = pd.read_csv(os.path.join(data_path, '_FIRE', fire_dir, 'data.csv'), parse_dates=['acq_date'])
+    fd = fire_data.loc[(fire_data['type'] == 0) & (fire_data['confidence'] >= 70)]
+
+    fire_ds = ds_from_df(fd, lat, long, time_vals, step)
+    ds.data['fire'] = fire_ds['fire']
+
+    ds.rechunk()
+
+    ds.data.to_zarr(f'./data/_ZARR_READY/{extent_name}')
+
 
 if __name__ == '__main__':
 
@@ -140,40 +183,15 @@ if __name__ == '__main__':
 
     def time_elapsed(end, start = start_time):
         return f'{end - start:.02f}s'
-
-    prior_data = xr.open_dataset('./data/la_forest_prior/combined.grib', chunks='auto', decode_timedelta=False)
-    # data = xr.open_dataset('./data/la_forest_main/combined.grib', chunks={'time': 365 }, decode_timedelta=False)
-    prior_data = xr.open_zarr('./data/_ZARR/canada_prior', decode_timedelta=False)
-    data = xr.open_zarr('./data/_ZARR/canada_main', decode_timedelta=False)
     
-    fire_data = pd.read_csv('./data/_FIRE/la_forest_csv/data.csv', parse_dates=['acq_date'])
-    fd = fire_data.loc[(fire_data['type'] == 0) & (fire_data['confidence'] >= 70)]
+    
+
+    raw_data_to_zarr('./data', 'la_forest')
 
     data_open_time = time.time()
-    print(f'Data open in: {time_elapsed(data_open_time)}')
-    ds = FlattenedDaskDataset(data, prior_data, clean_data=False)
-
-    ds.data.to_zarr('./data/_ZARR/la_main')
-    ds.prior_data.to_zarr('./data/_ZARR/la_prior')
-    quit()
-
-    ds.setup()
-
-    lat = data.latitude.values.round(decimals=1)
-    long = data.longitude.values.round(decimals=1)
-    time_vals = data.time.values.astype('datetime64[ns]')
-    step = data.step.values.astype(float)
+    print(f'Data written to ZARR in: {time_elapsed(data_open_time)}')
     
-    fire_ds = ds_from_df(fire_data, lat, long, time_vals, step)
-    print(f'{fire_ds['fire'].sum().compute() = }')
-    ds.data['fire'] = fire_ds['fire']
-    print(f'{ds.data['fire'].sum().compute() = }')    
+    setup_from_zarr('./data', 'la_forest', 'la_forest_csv')
 
-    setup_time = time.time()
-    print(f'Setup done in: {time_elapsed(setup_time, data_open_time)} // {time_elapsed(setup_time)}')
-
-    ds.rechunk()
-
-    ds.data.to_zarr('./data/_ZARR_READY/canada')
     finish = time.time()
-    print(f'Data writing done in: {time_elapsed(finish, setup_time)} // {time_elapsed(finish)}')
+    print(f'Data setup done in: {time_elapsed(finish, data_open_time)} // {time_elapsed(finish)}')
