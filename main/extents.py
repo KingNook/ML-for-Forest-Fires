@@ -105,4 +105,7 @@ NORTH_AUSTRALIA_EXTENT = Extent([129.0, -16.9, 145.5, -10.1], name='north_aus')
 LA_FORESTS_EXTENT = Extent([-118.3,33.9,-116.5,34.7], name='la_forest')
 
 # canada richardson fire
-CANADA_RICHARDSON_EXTENT = Extent([-113.3, 55.7, -108.6, 59.1], name='canada')
+CANADA_RICHARDSON_EXTENT = Extent([-113.3, 55.7, -108.6, 59.1], name='canada_richardson')
+
+# central / south-central africa
+CENTRAL_AFRICA_EXTENT = Extent([10.1,-19.3,42,-2], name='central_africa')

@@ -4,6 +4,9 @@ data-exploration/
 __pycache__/
 .*/
 
+main/images
+main/models
+
 .env
 *.csv
 *.ipynb

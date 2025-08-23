@@ -22,7 +22,7 @@ class FlattenedDaskDataset:
     '''
 
     proxy_vars = ('tp', 't2m')
-    proxy_timeframes = (30, 90, 180)
+    proxy_timeframes = (1, 30, 90, 180, 360, 720)
 
     def __init__(self, data: xr.Dataset, prior_data: xr.Dataset, clean_data: bool = True):
         '''
@@ -38,8 +38,8 @@ class FlattenedDaskDataset:
         '''
 
         if clean_data:
-            self.data = self.clean_na(data)
-            self.prior_data = self.clean_na(prior_data)
+            self.data = self.clean_na(data).reset_coords()
+            self.prior_data = self.clean_na(prior_data).reset_coords()
 
         else:
             self.data = data
@@ -51,6 +51,7 @@ class FlattenedDaskDataset:
 
         self.clean_coords()
 
+        self.prior_start_date = pd.to_datetime(min(prior_data.time.values))
         self.start_date = pd.to_datetime(min(data.time.values))
         self.end_date = pd.to_datetime(max(data.time.values))
 
@@ -99,8 +100,8 @@ class FlattenedDaskDataset:
 
     def rechunk(self):
 
-        self.data = self.data.chunk('auto')
-        self.prior_data = self.prior_data.chunk('auto')
+        self.data = self.data.unify_chunks().chunk({'time':365})
+        self.prior_data = self.prior_data.unify_chunks().chunk('auto')
 
     def clean_na(self, ds: xr.Dataset):
 
@@ -112,11 +113,18 @@ class FlattenedDaskDataset:
 
     @track_runtime
     def calculate_proxies(self):
+        '''
+        we want:
+        - 30, 90, 180, prev-180, prev-360
+        - 7 day stepped
+        '''
 
-        for timeframe in self.proxy_timeframes:
-            window = timeframe * 24
+        for var in self.proxy_vars:
 
-            for var in self.proxy_vars:
+            for timeframe in self.proxy_timeframes:
+                window = timeframe * 24
+
+            
                 prior_ds = self.prior_data[var]
                 main_ds = self.data[var]
                 ds = xr.concat([prior_ds, main_ds], dim='time')
@@ -126,9 +134,14 @@ class FlattenedDaskDataset:
 
                 ds = ds.rolling(dt=timeframe, min_periods = 1, center=False).mean()
                 ds_unstacked = ds.unstack(dim='dt')
-                ds_aligned = ds_unstacked.sel(time=pd.date_range(self.start_date, self.end_date, freq='D'))
 
-                name = f'mu_{var}_{timeframe}'
+                if timeframe == 1:
+                    prior_ds_unstacked = ds_unstacked.sel(time=slice(None, self.start_date))
+                    self.prior_data[name] = prior_ds_unstacked    
+
+                ds_aligned = ds_unstacked.sel(time=slice(self.start_date, None))
+
+                name = f'mu_{var}_{timeframe}' 
                 self.data[name] = ds_aligned
 
 

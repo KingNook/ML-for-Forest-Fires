@@ -9,55 +9,6 @@ import os
 
 from dask_addons import FlattenedDaskDataset
 
-config = {
-    'tp':     {'method': 'minmax', 'log': True},
-    't2m':    {'method': 'standard', 'log': False},
-    'ws10':   {'method': 'minmax', 'log': True},
-    'lai_hv': {'method': 'minmax', 'log': False},
-    'lai_lv': {'method': 'minmax', 'log': False},
-    'sp':     {'method': 'standard', 'log': False},
-    'd2m':    {'method': 'standard', 'log': False},
-}
-
-def normalise_feature_global(xarr, method='standard', log=False):
-    if log:
-        xarr = xr.where(xarr > 0, np.log1p(xarr), 0)
-
-    match method:
-        case 'standard':
-            mean = xarr.mean().item()
-            std = xarr.std().item()
-            return (xarr - mean) / std
-        case 'minmax':
-            min_val = xarr.min().item()
-            max_val = xarr.max().item()
-            return (xarr - min_val) / (max_val - min_val)
-        case _:
-            raise ValueError("Method must be 'standard' or 'minmax'")
-
-def normalise_dataset_global(ds, config=config):
-    '''
-    normalises all data variables in config
-    ## Parameters
-    **ds**: *xarray.Dataset*
-    Dataset to be normalise-ified
-
-    **config**: *dict*
-    Mapping variable names to dicts like:
-    ```
-    {
-        'method': 'standard' or 'minmax', 
-        'log': True/False
-    }
-    ```
-    '''
-    processed = {}
-    for var, opts in config.items():
-        da = ds[var]
-        da = normalise_feature_global(da, method=opts.get('method', 'standard'), log=opts.get('log', False))
-        processed[var] = da
-    return xr.Dataset(processed)
-
 def concat_gribs_from_subdirs(root_dir, output_name='combined.grib'):
     '''
     Combines all 'data.grib' files from subdirectories into one big ol' GRIB file.
@@ -132,27 +83,40 @@ def ds_from_df(df: pd.DataFrame, lat: list, long: list, time: list, step: list) 
 
     return ds
 
-def raw_data_to_zarr(data_path: str, extent_name: str):
+def clean_na(ds: xr.Dataset):
 
-    main_data_path = os.path.join(data_path, f'{extent_name}_main', 'combined.grib')
-    prior_data_path = os.path.join(data_path, f'{extent_name}_prior', 'combined.grib')
+    ds_stacked = ds.stack(dt = ('time', 'step'))
+    ds_clean = ds_stacked.dropna(dim = 'dt', how='all')
+    ds_unstacked = ds_clean.unstack(dim = 'dt')
+    
+    return ds_unstacked.chunk('auto')
 
-    prior_data = xr.open_dataset(prior_data_path, decode_timedelta=False)
-    data = xr.open_dataset(main_data_path, decode_timedelta=False)
+def raw_data_to_zarr(data_path: str, extent_name: str, main: bool = True, prior: bool = True):
+    '''
+    writes `<data_path>/<extent_name>_main/combined.grib` to a ZARR group at `<data_path>/_ZARR/<extent_name>_main`
+    '''
 
-    ds = FlattenedDaskDataset(data, prior_data, clean_data=True)
-    ds.rechunk()
+    if main:
+        main_data_path = os.path.join(data_path, f'{extent_name}_main', 'combined.grib')
+        data = xr.open_dataset(main_data_path, decode_timedelta=False)
+        clean_data = clean_na(data)
+        main_zarr_path = os.path.join(data_path, '_ZARR', f'{extent_name}_main')
+        clean_data.to_zarr(main_zarr_path, mode='w', align_chunks=True)
 
-    main_zarr_path = os.path.join(data_path, f'{extent_name}_main')
-    prior_zarr_path = os.path.join(data_path, f'{extent_name}_prior')
+    if prior:
+        prior_data_path = os.path.join(data_path, f'{extent_name}_prior', 'combined.grib')
+        prior_data = xr.open_dataset(prior_data_path, decode_timedelta=False)
+        clean_prior = clean_na(prior_data)
+        prior_zarr_path = os.path.join(data_path, '_ZARR', f'{extent_name}_prior')
+        clean_prior.to_zarr(prior_zarr_path, mode='w', align_chunks=True)
 
-    ds.data.to_zarr(main_zarr_path)
-    ds.prior_data.to_zarr(prior_zarr_path)
+def setup_from_zarr(data_path, extent_name, fire_dir, main = '', prior = ''):
 
-def setup_from_zarr(data_path, extent_name, fire_dir):
+    main_name = f'{extent_name}_main' if main == '' else main
+    prior_name = f'{extent_name}_prior'if prior == '' else prior
 
-    main_data_path = os.path.join(data_path, f'{extent_name}_main')
-    prior_data_path = os.path.join(data_path, f'{extent_name}_prior')
+    main_data_path = os.path.join(data_path, '_ZARR', main_name)
+    prior_data_path = os.path.join(data_path, '_ZARR', prior_name)
 
     prior_data = xr.open_zarr(prior_data_path, decode_timedelta=False)
     data = xr.open_zarr(main_data_path, decode_timedelta=False)
@@ -173,8 +137,11 @@ def setup_from_zarr(data_path, extent_name, fire_dir):
 
     ds.rechunk()
 
-    ds.data.to_zarr(f'./data/_ZARR_READY/{extent_name}')
+    ds_out = ds.data.reset_coords()
 
+    encoding = {var: {} for var in ds_out.data_vars}
+
+    ds_out.to_zarr(f'./data/_ZARR_READY/{extent_name}', mode='w', encoding=encoding)
 
 if __name__ == '__main__':
 
@@ -183,15 +150,13 @@ if __name__ == '__main__':
 
     def time_elapsed(end, start = start_time):
         return f'{end - start:.02f}s'
-    
-    
 
-    raw_data_to_zarr('./data', 'la_forest')
+    #raw_data_to_zarr('./data', 'canada-post', prior=False)
 
     data_open_time = time.time()
     print(f'Data written to ZARR in: {time_elapsed(data_open_time)}')
-    
-    setup_from_zarr('./data', 'la_forest', 'la_forest_csv')
+
+    setup_from_zarr('./data', 'canada-post', 'canada-post_csv', prior='canada_main')
 
     finish = time.time()
     print(f'Data setup done in: {time_elapsed(finish, data_open_time)} // {time_elapsed(finish)}')
