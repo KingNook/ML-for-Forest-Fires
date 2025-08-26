@@ -7,6 +7,16 @@ from dateutil.relativedelta import relativedelta
 
 from tools import hourlydaterange, track_runtime
 
+ALL_FEATURES = ['d2m', 'sp', 't2m', 'tp', 'ws10', 'lai_hv', 'lai_lv']
+
+
+ALL_FEATURE_VARS = [
+    't2m', 'd2m', 'lai_hv', 'lai_lv',
+    'mu_ws10_1',
+    'mu_tp_1', 'mu_tp_30', 'mu_tp_90', 'mu_tp_180', 'mu_tp_180_step', 'mu_tp_360_step',
+    'mu_t2m_1', 'mu_t2m_30', 'mu_t2m_90', 'mu_t2m_180', 'mu_t2m_180_step', 'mu_t2m_360_step'
+]
+
 def is_final_day(date: datetime):
     '''
     checks if `date` is the final day of the month
@@ -14,15 +24,17 @@ def is_final_day(date: datetime):
 
     return date == date + relativedelta(day = 31)
 
-
-
 class FlattenedDaskDataset:
     '''
     takes in dataset, indexing treats this as a flattened dataset; cannot convert directly to numpy for memory reasons 
     '''
-
-    proxy_vars = ('tp', 't2m')
-    proxy_timeframes = (1, 30, 90, 180, 360, 720)
+    
+    # proxy config is dict in form {var: (windows)}
+    proxy_config = {
+        'tp' : (1, 30, 90, 180, 360, 720),
+        't2m': (1, 30, 90, 180, 360, 720),
+        'ws10': (1,)
+    }
 
     def __init__(self, data: xr.Dataset, prior_data: xr.Dataset, clean_data: bool = True):
         '''
@@ -65,8 +77,6 @@ class FlattenedDaskDataset:
         ## features 
         self.data_vars = list(self.data.variables)
         self.input_feature_num = len(self.data_vars)
-        self.proxy_num = len(self.proxy_vars) * len(self.proxy_timeframes)
-        self.total_features = self.input_feature_num + self.proxy_num
 
         ## setup
         # self.setup()
@@ -80,13 +90,29 @@ class FlattenedDaskDataset:
         `(data, prior_data)`
         '''
 
-        # self.compute_running_totals()
         self.compute_resultant_speed()
+        self.calculate_totals()
         self.calculate_proxies()
         
-        self.data = self.data.drop_vars(('u10', 'v10')).chunk(chunks = {'latitude': 9, 'longitude': 19, 'time': 365, 'step': 24})
-        self.prior_data = self.prior_data.drop_vars(self.proxy_vars).chunk(chunks = {'latitude': 9, 'longitude': 19, 'time': 185, 'step': 24})
+        self.data = self.data.chunk(chunks = {'latitude': 9, 'longitude': 19, 'time': 365, 'step': 24})
+        self.prior_data = self.prior_data.chunk(chunks = {'latitude': 9, 'longitude': 19, 'time': 185, 'step': 24})
         self.rechunk()
+
+    def select_data_vars(self, features):
+        '''
+        '''
+        try:
+            self.data = self.data[features]
+        except Exception as e:
+            print(f'Exception: {e}')
+    
+    def select_prior_vars(self, features = ('tp', 't2m')):
+        '''
+        '''
+        try: 
+            self.prior_data = self.prior_data[features]
+        except Exception as e:
+            print(f'Exception: {e}')
 
     def clean_coords(self):
         '''
@@ -117,31 +143,81 @@ class FlattenedDaskDataset:
         we want:
         - 30, 90, 180, prev-180, prev-360
         - 7 day stepped
+
+        for both
         '''
 
-        for var in self.proxy_vars:
+        vars = ('tp', 't2m')
+        
+        for proxy_var in vars:
+            # reference vars
+            ref_180 = f'tot_{proxy_var}_180'
+            ref_360 = f'tot_{proxy_var}_360'
+            ref_720 = f'tot_{proxy_var}_720'
 
-            for timeframe in self.proxy_timeframes:
+            # ave vars
+            name_180 = f'mu_{proxy_var}_180'
+            name_360 = f'mu_{proxy_var}_360'
+
+            # stepped vars
+            out_name_180 = f'mu_{proxy_var}_180_step'
+            out_name_360 = f'mu_{proxy_var}_360_step'
+
+            stacked_180 = self.data[ref_360] - self.data[ref_180]
+            stacked_360 = self.data[ref_720] - self.data[ref_360]
+
+            self.data[out_name_180] = stacked_180 / 180
+            self.data[out_name_360] = stacked_360 / 360
+
+            self.data[name_180] = self.data[ref_180] / 180
+            self.data[name_360] = self.data[ref_360] / 360
+
+            self.data = self.data.drop_vars([
+                ref_180, ref_360, ref_720
+            ])
+
+
+
+    @track_runtime
+    def calculate_totals(self):
+        '''
+        we want:
+        - 30, 90, 180, prev-180 -> 360 - 180, prev-360 -> 720 - 360
+        - 7 day stepped
+        '''
+
+        for var, timeframes in self.proxy_config.items():
+
+            for timeframe in timeframes:
                 window = timeframe * 24
 
-            
-                prior_ds = self.prior_data[var]
+                if timeframe == 1:
+                    prior_start = self.start_date.to_pydatetime() - timedelta(days=8)
+                else:
+                    prior_start = self.start_date.to_pydatetime() - timedelta(days=timeframe)
+
+                prior_ds = self.prior_data[var].sel(time = slice(prior_start, None)) # only select relevant amount of prior data
                 main_ds = self.data[var]
                 ds = xr.concat([prior_ds, main_ds], dim='time')
 
                 ds = ds.stack(dt = ['time', 'step']).dropna(dim='dt')
                 ds = ds.chunk({'dt':window})
 
-                ds = ds.rolling(dt=timeframe, min_periods = 1, center=False).mean()
+                if timeframe >= 180:
+                    name = f'tot_{var}_{timeframe}'
+                    ds = ds.rolling(dt=timeframe, min_periods = 1, center=False).sum()
+                else:
+                    name = f'mu_{var}_{timeframe}'
+                    ds = ds.rolling(dt=timeframe, min_periods = 1, center=False).mean()
+
                 ds_unstacked = ds.unstack(dim='dt')
 
                 if timeframe == 1:
-                    prior_ds_unstacked = ds_unstacked.sel(time=slice(None, self.start_date))
-                    self.prior_data[name] = prior_ds_unstacked    
+                    ds_aligned = ds_unstacked.sel(time=slice(prior_start, None))
+                else:
+                    ds_aligned = ds_unstacked.sel(time=slice(self.start_date, None))
 
-                ds_aligned = ds_unstacked.sel(time=slice(self.start_date, None))
-
-                name = f'mu_{var}_{timeframe}' 
+                 
                 self.data[name] = ds_aligned
 
 
@@ -151,8 +227,10 @@ class FlattenedDaskDataset:
         '''
 
         wind_speed = (self.data['u10']**2 + self.data['v10']**2)**0.5
-
         self.data['ws10'] = wind_speed
+
+        prior_wind_speed = (self.prior_data['u10']**2 + self.prior_data['v10']**2)**0.5
+        self.prior_data['ws10'] = prior_wind_speed
 
 
 

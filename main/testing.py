@@ -1,50 +1,34 @@
-## imports
-#  modules
+from sklearnex import patch_sklearn
+patch_sklearn()
+
+import os
+os.environ["SCIPY_ARRAY_API"] = "1"
+import xarray as xr
 import numpy as np
 import pandas as pd
-import xarray as xr
-import warnings
-import torch
-import os
-import time
+import matplotlib.pyplot as plt
+import matplotlib.animation as animation
+from joblib import load, dump
+import dask
 
-# custom code
-from dask_addons import FlattenedDaskDataset
-from open_data import open_data_dir, data_dir_to_zarr
-from neural_net import DNN, geoDataset, BatchDataLoader
-from open_fire_data import FlattenedTruthTable
+from random_forest import prep_samples, plot_feature_distribution
+from sklearn.ensemble import RandomForestClassifier, AdaBoostClassifier
+from sklearn.metrics import classification_report
+from imblearn.under_sampling import RandomUnderSampler
+from imblearn.over_sampling import RandomOverSampler, SMOTE, ADASYN, BorderlineSMOTE, KMeansSMOTE, SVMSMOTE
+from imblearn.pipeline import Pipeline
+from importlib import reload
 
-warnings.filterwarnings('ignore')
+from IPython.display import HTML
 
-setup_start_time = time.time()
+ds = xr.open_zarr('./data/_ZARR_READY/canada')
+X, y = prep_samples(ds, include_tv=True, compute=True)
 
-DATA_DIR_PATH = './data/_ZARR_FILES'
+downsampler = RandomUnderSampler(sampling_strategy=0.1)
 
-data_path = os.path.join(DATA_DIR_PATH, 'alaska_full.zarr')
-prior_data_path = os.path.join(DATA_DIR_PATH, 'alaska_prior.zarr')
+X_resampled, y_resampled = downsampler.fit_resample(X, y)
 
-data = xr.open_zarr(data_path, decode_timedelta=False)
-prior_data = xr.open_zarr(prior_data_path, decode_timedelta=False)
+clf = AdaBoostClassifier()
+clf.fit(X_resampled, y_resampled)
 
-input_ds = FlattenedDaskDataset(data, prior_data)
-input_ds.setup()
-
-fire_data = FlattenedTruthTable(
-    pd.read_csv('./data/_FIRE/alaska_range_csv/data.csv'),
-    lat_vals = input_ds.latitude,
-    long_vals = input_ds.longitude
-)
-
-ds = geoDataset(input_ds, fire_data, feature_num = 13)
-
-prog_start_time = time.time()
-print(f'Setup done in {prog_start_time - setup_start_time:.02f}s')
-## == DON'T TOUCH CODE ABOVE == ##
-
-dataloader = BatchDataLoader(ds)
-
-test = enumerate(dataloader)
-
-for i in test:
-
-    print(i)
+dump(clf, './main/models/can.adaboost.new_order.joblib')

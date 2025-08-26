@@ -91,7 +91,7 @@ def clean_na(ds: xr.Dataset):
     
     return ds_unstacked.chunk('auto')
 
-def raw_data_to_zarr(data_path: str, extent_name: str, main: bool = True, prior: bool = True):
+def raw_data_to_zarr(data_path: str, extent_name: str, main: bool = True, prior: bool = True, raw: bool = False):
     '''
     writes `<data_path>/<extent_name>_main/combined.grib` to a ZARR group at `<data_path>/_ZARR/<extent_name>_main`
     '''
@@ -110,7 +110,18 @@ def raw_data_to_zarr(data_path: str, extent_name: str, main: bool = True, prior:
         prior_zarr_path = os.path.join(data_path, '_ZARR', f'{extent_name}_prior')
         clean_prior.to_zarr(prior_zarr_path, mode='w', align_chunks=True)
 
-def setup_from_zarr(data_path, extent_name, fire_dir, main = '', prior = ''):
+    if raw:
+        raw_data_path = os.path.join(data_path, f'{extent_name}', 'combined.grib')
+        data = xr.open_dataset(raw_data_path, decode_timedelta=False)
+        clean = clean_na(data)
+        zarr_path = os.path.join(raw_data_path, '_ZARR', f'{extent_name}')
+        clean.to_zarr(zarr_path, mode='w', align_chunks=True)
+
+def setup_from_zarr(data_path, fire_dir, extent_name = '', main = '', prior = ''):
+    '''
+    if `main` and `prior` aren't given, will look for data from `<data_path>/<extent_name>_main` and `<data_path>/<extent_name>_prior` to setup with \\
+    fire data is read from `<data_path>/_FIRE/<fire_dir>/data.csv`
+    '''
 
     main_name = f'{extent_name}_main' if main == '' else main
     prior_name = f'{extent_name}_prior'if prior == '' else prior
@@ -151,12 +162,13 @@ if __name__ == '__main__':
     def time_elapsed(end, start = start_time):
         return f'{end - start:.02f}s'
 
-    #raw_data_to_zarr('./data', 'canada-post', prior=False)
+    #raw_data_to_zarr('./data', 'canada', main=False)
 
     data_open_time = time.time()
     print(f'Data written to ZARR in: {time_elapsed(data_open_time)}')
 
-    setup_from_zarr('./data', 'canada-post', 'canada-post_csv', prior='canada_main')
+    # setup_from_zarr('./data', 'canada', 'canada_richardson_csv')
+    setup_from_zarr('./data', fire_dir = 'canada-post_csv', main = 'canada-post_main', prior = 'canada_main', extent_name= 'canada-post')
 
     finish = time.time()
     print(f'Data setup done in: {time_elapsed(finish, data_open_time)} // {time_elapsed(finish)}')
