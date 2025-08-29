@@ -14,4 +14,4 @@ main/models
 *.idx
 *.zip
 
-!main/rf.ipynb
+!main.ipynb

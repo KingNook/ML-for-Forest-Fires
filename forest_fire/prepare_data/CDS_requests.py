@@ -1,6 +1,8 @@
 '''
 This contains all of the code that relates to requests to the CDS (Climate Data Store) managed by Copernicus/ECMWF 
 
+RECOMMENDED: to use `request_total_data()` unless specifics need to be changed (in which case use `format_request()` with `multi_download()`)
+
 Note that the CDS API personal access token must be set up in advance: https://cds.climate.copernicus.eu/how-to-api
 
 From the old files, this covers functionality from
