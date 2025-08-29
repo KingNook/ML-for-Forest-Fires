@@ -10,10 +10,8 @@
 - [x] extents.py
 - [ ] feature_analysis.ipynb
 - [ ] gdc_testing.ipynb
-- [ ] images
 - [ ] main.py
 - [ ] model.ipynb
-- [ ] models
 - [ ] neural_net.py
 - [ ] open_data.py
 - [ ] open_fire_data.py
@@ -22,8 +20,5 @@
 - [x] request_climate_data.py
 - [ ] rf.ipynb
 - [ ] save_to_grib.py
-- [ ] temp
-- [ ] test.py
-- [ ] testing.py
 - [x] tools.py
 - [x] unzippify.py
