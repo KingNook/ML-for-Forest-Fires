@@ -2,7 +2,7 @@
 Given a geospatial Xarray dataset, prepare samples that can be passed into an sklearn model, ie numpy array / numpy-backed dask array (w/ chunk sizes computed)
 
 This covers code from
-- random_forest.py (WIP)
+- random_forest.py
 '''
 import numpy as np
 import pandas as pd

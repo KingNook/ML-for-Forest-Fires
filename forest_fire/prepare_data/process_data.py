@@ -1,6 +1,6 @@
 '''
 Contains code for managing data once it's been downloaded
-Note that default settings will expect data to be stored under './data/<extent>/main/combined.grib' and './data/<extent>/prior/combined.grib'
+Note that default settings will expect data to be stored under `./data/<extent>/main/combined.grib` and `./data/<extent>/prior/combined.grib`
 
 Contains code to
 - convert data from GRIB -> Zarr
