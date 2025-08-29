@@ -115,9 +115,12 @@ def multi_download(
         max_threads: int = 2
     ):    
     '''
-    uses multi-threading to speed up download process (hopefully)
-    i don't know how many is appropriate to use at once -- i'll start with 3 perhaps? and see from there
-    max_threads defaults to 2 unless otherwise specified (anything more than that doesn't seem to have any benefit)
+    Downloads all requests in a list of requests - this uses multi-threading to queue 2 requests at a time (CDS will only process one at a time, but if multiple are queued then the waiting time between requests is reduced; I don't think there is any benefit in having more than 2 threads)
+
+    Parameters
+    ----------
+    requests: list
+        List of 'Request's to be downloaded. I would recommend generating this from the 
     '''
 
     if max_threads == -1:

@@ -7,11 +7,11 @@ import contextlib
 def temp_cwd(new_dir):
     '''
     usage:
-
+    ```
     with temp_cwd(dir_path):
         <code>
+    ```
     '''
-
     old_cwd = os.getcwd()
 
     os.chdir(new_dir)
@@ -27,6 +27,7 @@ def unzip_to_new_dir(data_path, file_name, remove):
 
     extracts the zip file into a new directory `data_path/<file>/` then possibly removes the old zip file
     returns the path to directory where contents unzipped to
+    test
     '''
 
     zip_file_path = os.path.join(data_path, file_name)
@@ -42,7 +43,6 @@ def unzip_to_new_dir(data_path, file_name, remove):
         os.remove(zip_file_path)
 
     return new_dir_path
-    
 
 def unpack_data_folder(data_path, remove=False):
     '''
