@@ -300,7 +300,8 @@ def request_total_data(
         extent: Extent,
         data_path: str = './data',
         prior: bool = True,
-        main: bool = True
+        main: bool = True,
+        test: bool = False
     ):
 
     name = extent.name
@@ -316,7 +317,7 @@ def request_total_data(
             months = ['07', '08', '09', '10', '11', '12']
         )
 
-        prior_dir_name = f'./data/{name}/prior'
+        prior_dir_name = os.path.join(data_path, f'{name}/prior')
 
         multi_download(proxy_requests, prior_dir_name, max_threads=2)
         unpack_folder(prior_dir_name, remove=True)
@@ -326,10 +327,23 @@ def request_total_data(
         input_requests = format_requests(
             variables = input_variables,
             extent = extent.CDS, 
-            years = ['2010', '2011', '2012', '2013', '2014']
+            years = TRAIN_YEARS
         )
         
-        dir_name = f'./data/{name}/main'
+        dir_name = os.path.join(data_path, f'{name}/main')
+
+        multi_download(input_requests, dir_name, max_threads=-1)
+        unpack_folder(dir_name, remove=True)
+        concat_gribs_from_subdirs(dir_name)
+
+    if test:
+        input_requests = format_requests(
+            variables = input_variables,
+            extent = extent.CDS, 
+            years = TEST_YEARS
+        )
+        
+        dir_name = os.path.join(data_path, f'{name}/test')
 
         multi_download(input_requests, dir_name, max_threads=-1)
         unpack_folder(dir_name, remove=True)

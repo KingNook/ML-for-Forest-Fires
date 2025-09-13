@@ -1,0 +1,314 @@
+Training features: lai_hv, lai_lv
+Dropped: mu_t2m_180, mu_t2m_30, mu_t2m_90, mu_tp_180, mu_tp_90, mu_tp_30, d2m, sp, t2m, tp, ws10
+              precision    recall  f1-score   support
+
+         0.0       1.00      0.71      0.83  58904573
+         1.0       0.00      0.80      0.00      2947
+
+    accuracy                           0.71  58907520
+   macro avg       0.50      0.75      0.41  58907520
+weighted avg       1.00      0.71      0.83  58907520
+
+Drop in f1 score: 0.5797283378217615
+Training features: ws10
+Dropped: mu_t2m_180, mu_t2m_30, mu_t2m_90, mu_tp_180, mu_tp_90, mu_tp_30, d2m, sp, t2m, tp, lai_hv, lai_lv
+              precision    recall  f1-score   support
+
+         0.0       1.00      0.48      0.64  58904573
+         1.0       0.00      0.72      0.00      2947
+
+    accuracy                           0.48  58907520
+   macro avg       0.50      0.60      0.32  58907520
+weighted avg       1.00      0.48      0.64  58907520
+
+Drop in f1 score: 0.5798621963124535
+Training features: ws10, lai_hv, lai_lv
+Dropped: mu_t2m_180, mu_t2m_30, mu_t2m_90, mu_tp_180, mu_tp_90, mu_tp_30, d2m, sp, t2m, tp
+              precision    recall  f1-score   support
+
+         0.0       1.00      0.72      0.84  58904573
+         1.0       0.00      0.75      0.00      2947
+
+    accuracy                           0.72  58907520
+   macro avg       0.50      0.74      0.42  58907520
+weighted avg       1.00      0.72      0.84  58907520
+
+Drop in f1 score: 0.57972971258788
+Training features: tp
+Dropped: mu_t2m_180, mu_t2m_30, mu_t2m_90, mu_tp_180, mu_tp_90, mu_tp_30, d2m, sp, t2m, ws10, lai_hv, lai_lv
+              precision    recall  f1-score   support
+
+         0.0       1.00      0.50      0.66  58904573
+         1.0       0.00      0.72      0.00      2947
+
+    accuracy                           0.50  58907520
+   macro avg       0.50      0.61      0.33  58907520
+weighted avg       1.00      0.50      0.66  58907520
+
+Drop in f1 score: 0.5798577907298341
+Training features: tp, lai_hv, lai_lv
+Dropped: mu_t2m_180, mu_t2m_30, mu_t2m_90, mu_tp_180, mu_tp_90, mu_tp_30, d2m, sp, t2m, ws10
+              precision    recall  f1-score   support
+
+         0.0       1.00      0.76      0.86  58904573
+         1.0       0.00      0.77      0.00      2947
+
+    accuracy                           0.76  58907520
+   macro avg       0.50      0.76      0.43  58907520
+weighted avg       1.00      0.76      0.86  58907520
+
+Drop in f1 score: 0.5796842990661474
+Training features: tp, ws10
+Dropped: mu_t2m_180, mu_t2m_30, mu_t2m_90, mu_tp_180, mu_tp_90, mu_tp_30, d2m, sp, t2m, lai_hv, lai_lv
+              precision    recall  f1-score   support
+
+         0.0       1.00      0.47      0.64  58904573
+         1.0       0.00      0.75      0.00      2947
+
+    accuracy                           0.47  58907520
+   macro avg       0.50      0.61      0.32  58907520
+weighted avg       1.00      0.47      0.64  58907520
+
+Drop in f1 score: 0.5798581859272738
+Training features: tp, ws10, lai_hv, lai_lv
+Dropped: mu_t2m_180, mu_t2m_30, mu_t2m_90, mu_tp_180, mu_tp_90, mu_tp_30, d2m, sp, t2m
+              precision    recall  f1-score   support
+
+         0.0       1.00      0.76      0.86  58904573
+         1.0       0.00      0.77      0.00      2947
+
+    accuracy                           0.76  58907520
+   macro avg       0.50      0.77      0.43  58907520
+weighted avg       1.00      0.76      0.86  58907520
+
+Drop in f1 score: 0.5796775828937583
+Training features: t2m
+Dropped: mu_t2m_180, mu_t2m_30, mu_t2m_90, mu_tp_180, mu_tp_90, mu_tp_30, d2m, sp, tp, ws10, lai_hv, lai_lv
+              precision    recall  f1-score   support
+
+         0.0       1.00      0.64      0.78  58904573
+         1.0       0.00      0.99      0.00      2947
+
+    accuracy                           0.64  58907520
+   macro avg       0.50      0.81      0.39  58907520
+weighted avg       1.00      0.64      0.78  58907520
+
+Drop in f1 score: 0.5797268388425049
+Training features: t2m, lai_hv, lai_lv
+Dropped: mu_t2m_180, mu_t2m_30, mu_t2m_90, mu_tp_180, mu_tp_90, mu_tp_30, d2m, sp, tp, ws10
+              precision    recall  f1-score   support
+
+         0.0       1.00      0.79      0.88  58904573
+         1.0       0.00      0.84      0.00      2947
+
+    accuracy                           0.79  58907520
+   macro avg       0.50      0.81      0.44  58907520
+weighted avg       1.00      0.79      0.88  58907520
+
+Drop in f1 score: 0.5796052582336593
+Training features: t2m, ws10
+Dropped: mu_t2m_180, mu_t2m_30, mu_t2m_90, mu_tp_180, mu_tp_90, mu_tp_30, d2m, sp, tp, lai_hv, lai_lv
+              precision    recall  f1-score   support
+
+         0.0       1.00      0.64      0.78  58904573
+         1.0       0.00      0.99      0.00      2947
+
+    accuracy                           0.64  58907520
+   macro avg       0.50      0.81      0.39  58907520
+weighted avg       1.00      0.64      0.78  58907520
+
+Drop in f1 score: 0.5797268388425049
+Training features: t2m, ws10, lai_hv, lai_lv
+Dropped: mu_t2m_180, mu_t2m_30, mu_t2m_90, mu_tp_180, mu_tp_90, mu_tp_30, d2m, sp, tp
+              precision    recall  f1-score   support
+
+         0.0       1.00      0.79      0.88  58904573
+         1.0       0.00      0.83      0.00      2947
+
+    accuracy                           0.79  58907520
+   macro avg       0.50      0.81      0.44  58907520
+weighted avg       1.00      0.79      0.88  58907520
+
+Drop in f1 score: 0.5796007446553614
+Training features: t2m, tp
+Dropped: mu_t2m_180, mu_t2m_30, mu_t2m_90, mu_tp_180, mu_tp_90, mu_tp_30, d2m, sp, ws10, lai_hv, lai_lv
+              precision    recall  f1-score   support
+
+         0.0       1.00      0.72      0.84  58904573
+         1.0       0.00      0.97      0.00      2947
+
+    accuracy                           0.72  58907520
+   macro avg       0.50      0.85      0.42  58907520
+weighted avg       1.00      0.72      0.84  58907520
+
+Drop in f1 score: 0.5796507587756928
+Training features: t2m, tp, lai_hv, lai_lv
+Dropped: mu_t2m_180, mu_t2m_30, mu_t2m_90, mu_tp_180, mu_tp_90, mu_tp_30, d2m, sp, ws10
+              precision    recall  f1-score   support
+
+         0.0       1.00      0.82      0.90  58904573
+         1.0       0.00      0.81      0.00      2947
+
+    accuracy                           0.82  58907520
+   macro avg       0.50      0.81      0.45  58907520
+weighted avg       1.00      0.82      0.90  58907520
+
+Drop in f1 score: 0.5795584538810727
+Training features: t2m, tp, ws10
+Dropped: mu_t2m_180, mu_t2m_30, mu_t2m_90, mu_tp_180, mu_tp_90, mu_tp_30, d2m, sp, lai_hv, lai_lv
+              precision    recall  f1-score   support
+
+         0.0       1.00      0.72      0.84  58904573
+         1.0       0.00      0.97      0.00      2947
+
+    accuracy                           0.72  58907520
+   macro avg       0.50      0.85      0.42  58907520
+weighted avg       1.00      0.72      0.84  58907520
+
+Drop in f1 score: 0.5796507587756928
+Training features: t2m, tp, ws10, lai_hv, lai_lv
+Dropped: mu_t2m_180, mu_t2m_30, mu_t2m_90, mu_tp_180, mu_tp_90, mu_tp_30, d2m, sp
+              precision    recall  f1-score   support
+
+         0.0       1.00      0.82      0.90  58904573
+         1.0       0.00      0.81      0.00      2947
+
+    accuracy                           0.82  58907520
+   macro avg       0.50      0.81      0.45  58907520
+weighted avg       1.00      0.82      0.90  58907520
+
+Drop in f1 score: 0.5795584538810727
+Training features: sp
+Dropped: mu_t2m_180, mu_t2m_30, mu_t2m_90, mu_tp_180, mu_tp_90, mu_tp_30, d2m, t2m, tp, ws10, lai_hv, lai_lv
+              precision    recall  f1-score   support
+
+         0.0       1.00      0.64      0.78  58904573
+         1.0       0.00      0.35      0.00      2947
+
+    accuracy                           0.64  58907520
+   macro avg       0.50      0.49      0.39  58907520
+weighted avg       1.00      0.64      0.78  58907520
+
+Drop in f1 score: 0.5799033106898097
+Training features: sp, lai_hv, lai_lv
+Dropped: mu_t2m_180, mu_t2m_30, mu_t2m_90, mu_tp_180, mu_tp_90, mu_tp_30, d2m, t2m, tp, ws10
+              precision    recall  f1-score   support
+
+         0.0       1.00      0.78      0.88  58904573
+         1.0       0.00      0.68      0.00      2947
+
+    accuracy                           0.78  58907520
+   macro avg       0.50      0.73      0.44  58907520
+weighted avg       1.00      0.78      0.88  58907520
+
+Drop in f1 score: 0.5796927110164632
+Training features: sp, ws10
+Dropped: mu_t2m_180, mu_t2m_30, mu_t2m_90, mu_tp_180, mu_tp_90, mu_tp_30, d2m, t2m, tp, lai_hv, lai_lv
+              precision    recall  f1-score   support
+
+         0.0       1.00      0.64      0.78  58904573
+         1.0       0.00      0.35      0.00      2947
+
+    accuracy                           0.64  58907520
+   macro avg       0.50      0.49      0.39  58907520
+weighted avg       1.00      0.64      0.78  58907520
+
+Drop in f1 score: 0.5799027622919909
+Training features: sp, ws10, lai_hv, lai_lv
+Dropped: mu_t2m_180, mu_t2m_30, mu_t2m_90, mu_tp_180, mu_tp_90, mu_tp_30, d2m, t2m, tp
+              precision    recall  f1-score   support
+
+         0.0       1.00      0.80      0.89  58904573
+         1.0       0.00      0.60      0.00      2947
+
+    accuracy                           0.80  58907520
+   macro avg       0.50      0.70      0.44  58907520
+weighted avg       1.00      0.80      0.89  58907520
+
+Drop in f1 score: 0.5796991890397644
+Training features: sp, tp
+Dropped: mu_t2m_180, mu_t2m_30, mu_t2m_90, mu_tp_180, mu_tp_90, mu_tp_30, d2m, t2m, ws10, lai_hv, lai_lv
+              precision    recall  f1-score   support
+
+         0.0       1.00      0.76      0.86  58904573
+         1.0       0.00      0.28      0.00      2947
+
+    accuracy                           0.76  58907520
+   macro avg       0.50      0.52      0.43  58907520
+weighted avg       1.00      0.76      0.86  58907520
+
+Drop in f1 score: 0.5798828393867502
+Training features: sp, tp, lai_hv, lai_lv
+Dropped: mu_t2m_180, mu_t2m_30, mu_t2m_90, mu_tp_180, mu_tp_90, mu_tp_30, d2m, t2m, ws10
+              precision    recall  f1-score   support
+
+         0.0       1.00      0.79      0.88  58904573
+         1.0       0.00      0.66      0.00      2947
+
+    accuracy                           0.79  58907520
+   macro avg       0.50      0.72      0.44  58907520
+weighted avg       1.00      0.79      0.88  58907520
+
+Drop in f1 score: 0.5796893870979145
+Training features: sp, tp, ws10
+Dropped: mu_t2m_180, mu_t2m_30, mu_t2m_90, mu_tp_180, mu_tp_90, mu_tp_30, d2m, t2m, lai_hv, lai_lv
+              precision    recall  f1-score   support
+
+         0.0       1.00      0.63      0.77  58904573
+         1.0       0.00      0.59      0.00      2947
+
+    accuracy                           0.63  58907520
+   macro avg       0.50      0.61      0.39  58907520
+weighted avg       1.00      0.63      0.77  58907520
+
+Drop in f1 score: 0.5798388427281523
+Training features: sp, tp, ws10, lai_hv, lai_lv
+Dropped: mu_t2m_180, mu_t2m_30, mu_t2m_90, mu_tp_180, mu_tp_90, mu_tp_30, d2m, t2m
+              precision    recall  f1-score   support
+
+         0.0       1.00      0.81      0.89  58904573
+         1.0       0.00      0.64      0.00      2947
+
+    accuracy                           0.81  58907520
+   macro avg       0.50      0.72      0.45  58907520
+weighted avg       1.00      0.81      0.89  58907520
+
+Drop in f1 score: 0.5796651422326178
+Training features: sp, t2m
+Dropped: mu_t2m_180, mu_t2m_30, mu_t2m_90, mu_tp_180, mu_tp_90, mu_tp_30, d2m, tp, ws10, lai_hv, lai_lv
+              precision    recall  f1-score   support
+
+         0.0       1.00      0.76      0.86  58904573
+         1.0       0.00      0.88      0.00      2947
+
+    accuracy                           0.76  58907520
+   macro avg       0.50      0.82      0.43  58907520
+weighted avg       1.00      0.76      0.86  58907520
+
+Drop in f1 score: 0.5796342337667887
+Training features: sp, t2m, lai_hv, lai_lv
+Dropped: mu_t2m_180, mu_t2m_30, mu_t2m_90, mu_tp_180, mu_tp_90, mu_tp_30, d2m, tp, ws10
+              precision    recall  f1-score   support
+
+         0.0       1.00      0.84      0.91  58904573
+         1.0       0.00      0.71      0.00      2947
+
+    accuracy                           0.84  58907520
+   macro avg       0.50      0.77      0.46  58907520
+weighted avg       1.00      0.84      0.91  58907520
+
+Drop in f1 score: 0.5795549955756167
+Training features: sp, t2m, ws10
+Dropped: mu_t2m_180, mu_t2m_30, mu_t2m_90, mu_tp_180, mu_tp_90, mu_tp_30, d2m, tp, lai_hv, lai_lv
+              precision    recall  f1-score   support
+
+         0.0       1.00      0.76      0.86  58904573
+         1.0       0.00      0.89      0.00      2947
+
+    accuracy                           0.76  58907520
+   macro avg       0.50      0.82      0.43  58907520
+weighted avg       1.00      0.76      0.86  58907520
+
+Drop in f1 score: 0.5796347492409306
+Training features: sp, t2m, ws10, lai_hv, lai_lv
+Dropped: mu_t2m_180, mu_t2m_30, mu_t2m_90, mu_tp_180, mu_tp_90, mu_tp_30, d2m, tp

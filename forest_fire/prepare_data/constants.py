@@ -5,7 +5,7 @@ Constants -- mostly default settings for various functions
 ## requests -- default settings
 
 TRAIN_YEARS = ['2010', '2011', '2012', '2013', '2014']
-TEST_YEARS = ['2015', '2016', '2017', '2018']
+TEST_YEARS = ['2015', '2016', '2017', '2018', '2019']
 
 ALL_MONTHS = [
     "01", "02", "03",
