@@ -35,3 +35,10 @@ Very much a question outside of the scope of this project; the main point is tha
 ### Why is this project important?
 Recalling that the important change in this is **replacing Soil Moisture with antecedent proxy variables**, the main idea is that, of all the input variables used, Soil Moisture is by far the most finickity to measure - all of the other input variables (to the best of my knowledge) for our model can be measured from satellite data, whereas Soil Moisture requires local, on-the-ground measurements. Thus, if we can replace the Soil Moisture variable with a set of 'easily measureable' variables that give similar / the same information, we can create a more useful model for forecasting fires.
 
+## How?
+
+### Get Started
+Setup a conda environment with the conda packages from (requirements doc) and pip installs from (requirements.txt which will be created at some point) -- this stuff is yet to be done (feel free to clone this repo though and figure out which packages are needed)
+
+## Contribute
+This project was coded and maintained by myself. Any contributions are welcome.
