@@ -42,5 +42,10 @@ Setup a conda environment with the conda packages from (requirements doc) and pi
 
 Install **conda** requirements from [requirements.txt](requirements.txt) and **pip** requirements from [pip_requirements.txt](pip_requirements.txt) -- this is currently waaaay more stuff than is required, but also it'll take effort to strip this down, and thus is a future thing to do. To be quite honest, I think they are mostly the same, but probably install the conda one first, then the pip one after.
 
+**FOR THE CONDA INSTALL**, run:
+```
+conda create --name <env> --file requirements.txt
+```
+
 ## Contribute
 This project was coded and maintained by myself. Any contributions are welcome.
