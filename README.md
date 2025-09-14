@@ -40,5 +40,7 @@ Recalling that the important change in this is **replacing Soil Moisture with an
 ### Get Started
 Setup a conda environment with the conda packages from (requirements doc) and pip installs from (requirements.txt which will be created at some point) -- this stuff is yet to be done (feel free to clone this repo though and figure out which packages are needed)
 
+Install **conda** requirements from [requirements.txt](requirements.txt) and **pip** requirements from [pip_requirements.txt](pip_requirements.txt) -- this is currently waaaay more stuff than is required, but also it'll take effort to strip this down, and thus is a future thing to do. 
+
 ## Contribute
 This project was coded and maintained by myself. Any contributions are welcome.
