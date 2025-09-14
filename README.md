@@ -47,8 +47,10 @@ Install **conda** requirements from [requirements.txt](requirements.txt) and **p
 conda create --name <env> --file requirements.txt
 ```
 
-**FOR THE PIP INSTALL**, run:
-
+**FOR THE PIP INSTALL**, run the following _INSIDE_ your conda environment:
+```
+(<env>) $ pip install -r pip_requirements.txt
+```
 
 ## Contribute
 This project was coded and maintained by myself. Any contributions are welcome.
