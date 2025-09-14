@@ -24,7 +24,8 @@ def prep_samples(
         label_var: str = 'fire',
         pre_stacked: bool = False, 
         include_tv: bool = False, 
-        compute: bool = False, 
+        compute: bool = False,
+        compute_chunks: bool = False, 
         clean_nan: bool = True
     ) -> tuple:
     '''
@@ -52,7 +53,14 @@ def prep_samples(
         NOTE IF THIS IS SET TO True, the VEGETATION_TYPE_PATH constant at the top of this file must be changed to the path to a Zarr group w/ tvh and tvl variables
 
     compute: bool, optional
-        Whether to call `.compute()` on X and y before returning. By default, this is False
+        Whether to call `.compute()` on X and y before returning. By default, this is False.
+
+        This takes precedence over `compute_chunks`
+
+    compute_chunks: bool, optional
+        Whether to call `.compute_chunk_sizes()` on X and y. By default, this is False
+
+        Note if `compute=True`, then this is irrelevant.
 
     clean_nan: bool, optional
         Whether to remove rows where any feature contains NaN -- may be necessary depending on the model used. By default, this is True
@@ -116,6 +124,8 @@ def prep_samples(
 
     if compute:
         return (X.compute(), y.compute())
+    elif compute_chunks:
+        return (X.compute_chunk_sizes(), y.compute_chunk_sizes())
 
     else:
         return (X, y)
