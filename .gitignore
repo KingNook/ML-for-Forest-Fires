@@ -7,6 +7,8 @@ __pycache__/
 main/images
 main/models
 
+models/
+
 .env
 *.csv
 *.ipynb
