@@ -2,6 +2,15 @@
 Constants -- mostly default settings for various functions
 '''
 
+## default configs
+
+# confidence: threshold (will classify > 70 as a fire)
+# types: will classify all type '0' fires as positives
+DEFAULT_FIRE_CONFIG = {
+    'confidence': 70,
+    'types': [0]
+}
+
 ## requests -- default settings
 
 TRAIN_YEARS = ['2010', '2011', '2012', '2013', '2014']

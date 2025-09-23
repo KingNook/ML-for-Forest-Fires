@@ -7,6 +7,7 @@ Contains code to
 - convert data from GRIB -> Zarr
 - calculates wind speed
 - calculate proxy variables + write to new Zarr
+- add fire data to the dataset
 
 Note that code here only calculates the following proxy variables (as of 28/08/25):
 - 30/90/180 day rolling averages for Temperature
@@ -15,6 +16,8 @@ Note that code here only calculates the following proxy variables (as of 28/08/2
 
 import xarray as xr
 from xarray import Dataset, DataArray
+import pandas as pd
+from pandas import DataFrame
 
 import os
 
@@ -94,6 +97,33 @@ def compute_proxy(main_ds: Dataset, prior_ds: Dataset, proxy_var: str, timeframe
     unstacked = stacked.unstack('dt')
 
     return unstacked
+
+def add_fire_data(main_dataset: Dataset, fire_data: DataFrame, config: dict):
+    '''
+    Adds fire data to a dataset -- note that fire data was downloaded from MODIS as a csv, so it is easiest to read as a DataFrame using pandas.read_csv
+    
+    It may be worth looking at the [MODIS user guide](https://modis-fire.umd.edu/files/MODIS_C6_C6.1_Fire_User_Guide_1.0.pdf) (see page 39/64 for information about column headers)
+    
+    Parameters
+    ----------
+    main_dataset: Dataset
+        Dataset to which data will be added
+
+    fire_data: DataFrame
+        Dataframe from which fire data is read -- should have data of MODIS form
+
+    config: dict (optional)
+        Thresholds for what is considered a fire; by default this is
+            - confidence > 70
+            - type == 0 (ie vegetation fire)
+
+    Returns
+    -------
+    new_dataset: Dataset
+        Dataset with new 'fire' column
+    '''
+
+    raise NotImplementedError
 
 def setup_dataset(main_path: str, prior_path: str, proxy_config: dict, drop_vars: bool = False) -> Dataset:
     '''
